@@ -502,6 +502,7 @@ class Diffusion(L.LightningModule):
       attention_mask = batch['attention_mask']
     else:
       attention_mask = None
+    
     losses = self._loss(batch['input_ids'], attention_mask)
     loss = losses.loss
 

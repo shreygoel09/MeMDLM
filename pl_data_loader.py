@@ -707,6 +707,7 @@ class FaultTolerantDistributedSampler(torch.utils.data.DistributedSampler):
 from torch.utils.data import Dataset, DataLoader
 import lightning.pytorch as pl
 from functools import partial
+import sys
 
 class CustomDataset(torch.utils.data.Dataset):
   def __init__(self, dataset, indices):
@@ -726,7 +727,10 @@ def collate_fn(batch, tokenizer):
     max_len = max([len(seq) for seq in sequences])
     #labels = torch.tensor([item['labels'] for item in batch], dtype=torch.float32)
 
-    tokens = tokenizer(sequences, return_tensors='pt', padding=True, truncation=True, max_length=1024)
+    tokens = tokenizer(sequences, return_tensors='pt', padding='max_length', truncation=True, max_length=1024)
+
+    print(tokens['input_ids'].any() == 32)
+    print(sequences)
 
     #attention_masks = torch.ones(tokens.size()[:2], dtype=torch.bool)
 

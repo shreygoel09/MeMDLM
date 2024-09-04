@@ -31,7 +31,7 @@ data:
     wrap: null
 
 loader:
-  global_batch_size: 256
+  global_batch_size: 32
   eval_global_batch_size: ${.global_batch_size}
   # Note: batch_size and eval_batch_size are **per machine**
   batch_size: ${div_up:${.global_batch_size}, ${eval:${trainer.devices} * ${trainer.num_nodes}}}
@@ -70,9 +70,9 @@ eval:
 
 optim:
   weight_decay: 0.075
-  lr: 3e-4
+  lr: 3e-4 #3e-6
   beta1: 0.85 #0.9
-  beta2: 0.98 #0.999
+  beta2: 0.999 #0.999
   eps: 1e-8
 
 Model:
@@ -90,21 +90,21 @@ trainer:
   devices: ${device_count:}
   accumulate_grad_batches: ${div_up:${loader.global_batch_size}, ${eval:${trainer.devices} * ${loader.batch_size} * ${trainer.num_nodes}}}
   gradient_clip_val: 1.0
-  precision: 'bf16'
+  precision: 32 #'bf16'
   num_sanity_val_steps: 2
   max_epochs: 2
   max_steps: 1_000_000
-  log_every_n_steps: 5
+  log_every_n_steps: 10
   limit_train_batches: 1.0   # train on full dataset, can be used to toggle quick run
   limit_val_batches: 1.0     # validate on full dataset, can be used to toggle quick run
-  val_check_interval: 39610 #79978
+  val_check_interval: 38892
 
 wandb:
-  project: MDpLM_shrey_test
+  project: MDpLM_ESM_pretraining
   notes: Mulan for text
   group: programmablebio
   job_type: null
-  name: attn_mask_testing #epochs10_lr3e-5_bsz256_valcheckint79978_gradclip1_betaone0.9_betatwo0.999
+  name: epochs10_lr3e-6_bsz64_gradclip1_beta-one0.85_beta-two0.98_noautocast
   id: ${.name}_${seed}
 
 hydra:
