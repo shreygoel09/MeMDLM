@@ -17,6 +17,8 @@ from lightning.pytorch.strategies import DDPStrategy
 from transformers import AutoTokenizer
 from datasets import load_from_disk, load_dataset
 
+#wandb.login(key="2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f")
+
 omegaconf.OmegaConf.register_new_resolver(
   'cwd', os.getcwd)
 omegaconf.OmegaConf.register_new_resolver(

@@ -729,9 +729,6 @@ def collate_fn(batch, tokenizer):
 
     tokens = tokenizer(sequences, return_tensors='pt', padding='max_length', truncation=True, max_length=1024)
 
-    print(tokens['input_ids'].any() == 32)
-    print(sequences)
-
     #attention_masks = torch.ones(tokens.size()[:2], dtype=torch.bool)
 
     return {

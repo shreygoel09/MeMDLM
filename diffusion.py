@@ -113,7 +113,10 @@ class WrapVanillaESM(nn.Module):
         for module in layer.attention.self.value.modules():
           for param in module.parameters():
             param.requires_grad = True
-
+  
+  def unfreeze_all_layers(self):
+    for param in self.model.parameters():
+      param.requires_grad = True
 
   def forward(self, inputs, sigma, attention_mask):
     logits = self.model(input_ids=inputs, attention_mask=attention_mask).logits
@@ -203,7 +206,7 @@ class Diffusion(L.LightningModule):
         self.config, vocab_size=self.vocab_size, mlm_model_path=config.training.mlm_model_path)
     elif self.config.backbone == "vanilla_esm_pretrain":
       self.backbone = WrapVanillaESM(bert_model_path=self.config.training.esm_model_path)
-      self.backbone.unfreeze_attn_layers()
+      self.backbone.unfreeze_all_layers()
     elif self.config.backbone == 'membrane_esm_finetune':
       self.backbone = WrapMembraneESM(bert_model_path=self.config.checkpointing.fine_tuned_esm_mdlm_ckpt_path)
       self.backbone.unfreeze_attn_layers()
@@ -474,6 +477,7 @@ class Diffusion(L.LightningModule):
       assert t.ndim == 2
       t = t.clamp(0., 1. - 1e-4)
     alpha_t = 1 - t + torch.zeros_like(xt)
+    sys.stdout.flush()
     alpha_s = 1 - (t - dt) + torch.zeros_like(xt)
 
     log_x_theta_at_x0 = torch.gather(
@@ -848,9 +852,24 @@ class Diffusion(L.LightningModule):
           diffusion_model_input_length), input. 
       move_chance: float torch.Tensor with shape (batch_size, 1).
     """
-    move_indices = torch.rand(
-      * x.shape, device=x.device) < move_chance
-    xt = torch.where(move_indices, self.mask_index, x)
+
+    actual_seq_length = (x != 1).sum(dim=1, keepdim=True)
+
+    max_mask_length = (actual_seq_length * 0.75).long()
+
+    move_indices = torch.rand(*x.shape, device=x.device) < move_chance
+    
+    restricted_move_indices = torch.zeros_like(move_indices, dtype=torch.bool)
+
+    for i in range(x.shape[0]):
+      true_positions = torch.where(move_indices[i])[0]
+      if len(true_positions) > max_mask_length[i]:
+        selected_positions = true_positions[:max_mask_length[i].item()]
+        restricted_move_indices[i, selected_positions] = True
+      else:
+        restricted_move_indices[i] = move_indices[i]
+    xt = torch.where(restricted_move_indices, self.mask_index, x)
+
     return xt
 
   def _sample_prior(self, *batch_dims):
