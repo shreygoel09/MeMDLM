@@ -13,6 +13,7 @@ import torch
 import dit
 import ema
 import time
+import gc
 import pl_data_loader as dataloader
 import torch.nn.functional as F
 import torchmetrics
@@ -91,8 +92,9 @@ class Perplexity(NLL):
 class WrapVanillaESM(nn.Module):
   def __init__(self, bert_model_path):
     super(WrapVanillaESM, self).__init__()
-    self.bert_model_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path).to(self.bert_model_device)
+    #self.bert_model_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path).to(self.bert_model_device)
+    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path, device_map='cpu')
     self.tokenizer = AutoTokenizer.from_pretrained(bert_model_path)
     
 
@@ -133,8 +135,9 @@ class WrapVanillaESM(nn.Module):
 class WrapMembraneESM(nn.Module):
   def __init__(self, bert_model_path):
     super(WrapMembraneESM, self).__init__()
-    self.bert_model_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path).to(self.bert_model_device)
+    #self.bert_model_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path).to(self.bert_model_device)
+    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path, device_map='cpu')
     self.tokenizer = AutoTokenizer.from_pretrained(bert_model_path)
   
   def __call__(self, *args, **kwargs):
@@ -336,20 +339,9 @@ class Diffusion(L.LightningModule):
     self.backbone.save_model(self.config.checkpointing.fine_tuned_esm_mdlm_ckpt_path)
 
   def on_train_start(self):
+    torch.cuda.empty_cache()
     if self.ema:
-      params_with_grad = [p for p in itertools.chain(
-        self.backbone.parameters(),
-        self.noise.parameters()
-      ) if p.requires_grad]
-
-      self.ema = ema.ExponentialMovingAverage(
-        parameters=params_with_grad,
-        decay=self.config.training.ema
-      )
       self.ema.move_shadow_params_to_device(self.device)
-
-      self.total_tokens = 0.0
-      self.start_time = time.time()
 
     # Adapted from:
     # https://github.com/Dao-AILab/flash-attention/blob/main/training/src/datamodules/language_modeling_hf.py
@@ -378,6 +370,7 @@ class Diffusion(L.LightningModule):
       from functools import partial
       from pl_data_loader import collate_fn
       collate_partial = partial(collate_fn, tokenizer=self.tokenizer)
+      torch.cuda.empty_cache()
 
       updated_dls.append(
         torch.utils.data.DataLoader(
@@ -385,27 +378,37 @@ class Diffusion(L.LightningModule):
           batch_size=self.config.loader.batch_size,
           num_workers=self.config.loader.num_workers,
           pin_memory=self.config.loader.pin_memory,
-          #sampler=dl_sampler,
+          sampler=dl_sampler,
           shuffle=False,
           persistent_workers=True,
           collate_fn=collate_partial))
     self.trainer.fit_loop._combined_loader.flattened = updated_dls
 
   def optimizer_step(self, *args, **kwargs):
-    optimizer_closure = kwargs.get('optimizer_closure', None)
-
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad and p.grad_fn is not None]
-        
-    # if params_with_grad:
-    #   super().optimizer_step(closure=optimizer_closure)
-
-    if self.ema:
-      self.ema.update(params_with_grad)
-    
     super().optimizer_step(*args, **kwargs)
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    
+    if self.ema:
+      self.ema.update(itertools.chain(
+        self.backbone.parameters(),
+        self.noise.parameters()))
+
+    # optimizer_closure = kwargs.get('optimizer_closure', None)
+
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad and p.grad_fn is not None]
+        
+    # # if params_with_grad:
+    # #   super().optimizer_step(closure=optimizer_closure)
+
+    # if self.ema:
+    #   self.ema.update(params_with_grad)
+    
+    # super().optimizer_step(*args, **kwargs)
 
   def _subs_parameterization(self, logits, xt):
     # log prob at the mask index = - infinity
@@ -529,12 +532,22 @@ class Diffusion(L.LightningModule):
     return loss
 
   def on_train_epoch_start(self):
+    param_size = 0
+    for param in self.backbone.parameters():
+        param_size += param.nelement() * param.element_size()
+    buffer_size = 0
+    for buffer in self.backbone.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+    size_all_mb = (param_size + buffer_size) / 1024**2
+    print('model size: {:.3f}MB'.format(size_all_mb))
+    sys.stdout.flush()
+
     self.backbone.train()
     self.noise.train()
 
   def training_step(self, batch, batch_idx):
-    # Calculate tokens/sec
-    batch_start_time = time.time()
+    # Initialize throughput calculation
+    start_time = time.time()
 
     loss = self._compute_loss(batch, prefix='train')
     self.log(name='trainer/loss',
@@ -543,9 +556,11 @@ class Diffusion(L.LightningModule):
              on_epoch=False,
              sync_dist=True)
     
-    self.total_tokens += batch['input_ids'].numel()
-    elapsed_time = time.time() - self.start_time
-    throughput = self.total_tokens / elapsed_time
+    # Calculate throughput
+    elapsed_time = time.time() - start_time
+    total_tokens = batch['input_ids'].numel()
+    throughput = total_tokens / elapsed_time
+
     self.log(name='trainer/throughput',
              value=throughput,
              on_step=True,
@@ -555,56 +570,80 @@ class Diffusion(L.LightningModule):
     return loss
 
   def on_validation_epoch_start(self):
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad]
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad]
+    # if self.ema:
+    #   self.ema.store(params_with_grad)
+    #   self.ema.copy_to(params_with_grad)
+
+    gc.collect()
+    torch.cuda.empty_cache()
     if self.ema:
-      self.ema.store(params_with_grad)
-      self.ema.copy_to(params_with_grad)
+      self.ema.store(
+        itertools.chain(
+          self.backbone.parameters(),
+          self.noise.parameters()))
+      self.ema.copy_to(itertools.chain(
+        self.backbone.parameters(),
+        self.noise.parameters()))
     self.backbone.eval()
     self.noise.eval()
     assert self.valid_metrics.nll.mean_value == 0
     assert self.valid_metrics.nll.weight == 0
 
   def validation_step(self, batch, batch_idx):
-    return self._compute_loss(batch, prefix='val')
+    loss = self._compute_loss(batch, prefix='val')
+    self.log(name='trainer/val_loss',
+             value=loss.item(),
+             on_step=True,
+             on_epoch=False,
+             prog_bar=True,
+             sync_dist=True)
+    return loss
 
   def on_validation_epoch_end(self):
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad]
-    if ((self.config.eval.compute_perplexity_on_sanity
-         or not self.trainer.sanity_checking)
-         and self.config.eval.generate_samples
-         and not self.parameterization == 'ar'):
-      # (justin): implement sampling and kv cache for AR
-      samples, text_samples = None, None
-      for _ in range(
-        self.config.sampling.num_sample_batches):
-        samples = self._sample()
-        # Decode the samples to be re-tokenized by eval model
-        text_samples = self.tokenizer.batch_decode(samples)
-        if self.config.eval.compute_generative_perplexity:
-          self.compute_generative_perplexity(text_samples)
-      if self.trainer.global_rank == 0 and hasattr(
-        self.trainer.logger, 'log_table'):
-        # Log the last generated samples
-        text_samples = text_samples[
-          : self.config.sampling.num_sample_log]
-        self.trainer.logger.log_table(
-          key=f'samples@global_step{self.global_step}',
-          columns=['Generated Samples'],
-          data=[[s] for s in text_samples])
-      if self.config.eval.compute_generative_perplexity:
-        self.log('val/gen_ppl',
-                 self.gen_ppl_metric,
-                 on_epoch=True,
-                 on_step=False,
-                 sync_dist=True)
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad]
+    # if ((self.config.eval.compute_perplexity_on_sanity
+    #      or not self.trainer.sanity_checking)
+    #      and self.config.eval.generate_samples
+    #      and not self.parameterization == 'ar'):
+    #   # (justin): implement sampling and kv cache for AR
+    #   samples, text_samples = None, None
+    #   for _ in range(
+    #     self.config.sampling.num_sample_batches):
+    #     samples = self._sample()
+    #     # Decode the samples to be re-tokenized by eval model
+    #     text_samples = self.tokenizer.batch_decode(samples)
+    #     if self.config.eval.compute_generative_perplexity:
+    #       self.compute_generative_perplexity(text_samples)
+    #   if self.trainer.global_rank == 0 and hasattr(
+    #     self.trainer.logger, 'log_table'):
+    #     # Log the last generated samples
+    #     text_samples = text_samples[
+    #       : self.config.sampling.num_sample_log]
+    #     self.trainer.logger.log_table(
+    #       key=f'samples@global_step{self.global_step}',
+    #       columns=['Generated Samples'],
+    #       data=[[s] for s in text_samples])
+    #   if self.config.eval.compute_generative_perplexity:
+    #     self.log('val/gen_ppl',
+    #              self.gen_ppl_metric,
+    #              on_epoch=True,
+    #              on_step=False,
+    #              sync_dist=True)
+
+    gc.collect()
+    torch.cuda.empty_cache()
     if self.ema:
-      self.ema.restore(params_with_grad)
+      self.ema.restore(
+        itertools.chain(
+          self.backbone.parameters(),
+          self.noise.parameters()))
     
   def test_step(self, batch, batch_idx):
     loss = self._compute_loss(batch, prefix='test')
@@ -640,27 +679,33 @@ class Diffusion(L.LightningModule):
                  sync_dist=True)
   
   def on_test_epoch_start(self):
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad]
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad]
   
     if self.ema:
-      self.ema.store(params_with_grad)
-      self.ema.copy_to(params_with_grad)
+      self.ema.store(itertools.chain(
+        self.backbone.parameters(),
+        self.noise.parameters()))
+      self.ema.copy_to(itertools.chain(
+        self.backbone.parameters(),
+        self.noise.parameters()))
     
     self.backbone.eval()
     self.noise.eval()
     self.test_metrics.reset()
 
   def on_test_epoch_end(self):
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad]
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad]
   
     if self.ema:
-      self.ema.restore(params_with_grad)
+      self.ema.restore(itertools.chain(
+        self.backbone.parameters(),
+        self.noise.parameters()))
     
     for metric_name, metric_value in self.test_metrics.compute().items():
       self.log(metric_name, metric_value, sync_dist=True)
@@ -671,15 +716,17 @@ class Diffusion(L.LightningModule):
     #  Not clear if this is a problem or not.
     #  See: https://github.com/Lightning-AI/pytorch-lightning/issues/5558
 
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad]
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad]
 
     optimizer = torch.optim.AdamW(
-        params_with_grad,
+        itertools.chain(self.backbone.parameters(),
+                        self.noise.parameters()),
         lr=self.config.optim.lr,
-        betas=(self.config.optim.beta1, self.config.optim.beta2),
+        betas=(self.config.optim.beta1,
+               self.config.optim.beta2),
         eps=self.config.optim.eps,
         weight_decay=self.config.optim.weight_decay
     )
@@ -987,19 +1034,22 @@ class Diffusion(L.LightningModule):
   def restore_model_and_sample(self, num_steps, eps=1e-5):
     """Generate samples from the model."""
     # Lightning auto-casting is not working in this method for some reason
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p.requires_grad]
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p.requires_grad]
 
     if self.ema:
-      self.ema.store(params_with_grad)
-      self.ema.copy_to(params_with_grad)
+      self.ema.store(itertools.chain(self.backbone.parameters(),
+                                     self.noise.parameters()))
+      self.ema.copy_to(itertools.chain(self.backbone.parameters(),
+                                       self.noise.parameters()))
     self.backbone.eval()
     self.noise.eval()
     samples = self._sample(num_steps=num_steps, eps=eps)
     if self.ema:
-      self.ema.restore(params_with_grad)
+      self.ema.restore(itertools.chain(self.backbone.parameters(),
+                                       self.noise.parameters()))
     self.backbone.train()
     self.noise.train()
     return samples
@@ -1287,14 +1337,16 @@ class Diffusion(L.LightningModule):
     """Generate samples from the model."""
     # Lightning auto-casting is not working in this method for some reason
 
-    params_with_grad = [p for p in itertools.chain(
-      self.backbone.parameters(),
-      self.noise.parameters()
-    ) if p]
+    # params_with_grad = [p for p in itertools.chain(
+    #   self.backbone.parameters(),
+    #   self.noise.parameters()
+    # ) if p]
 
     if self.ema:
-      self.ema.store(params_with_grad)
-      self.ema.copy_to(params_with_grad)
+      self.ema.store(itertools.chain(self.backbone.parameters(),
+                                     self.noise.parameters()))
+      self.ema.copy_to(itertools.chain(self.backbone.parameters(),
+                                     self.noise.parameters()))
     self.backbone.eval()
     self.noise.eval()
     (sampling_steps, samples,
@@ -1304,7 +1356,8 @@ class Diffusion(L.LightningModule):
       num_strides=num_strides, 
       dt=dt)
     if self.ema:
-      self.ema.restore(params_with_grad)
+      self.ema.restore(itertools.chain(self.backbone.parameters(),
+                                     self.noise.parameters()))
     self.backbone.train()
     self.noise.train()
     return sampling_steps, samples, sequence_lengths

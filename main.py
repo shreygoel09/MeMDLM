@@ -33,12 +33,13 @@ def _load_from_checkpoint(config, tokenizer):
   if 'hf' in config.backbone:
     return Diffusion(
       config, tokenizer=tokenizer).to('cuda')
-  
-  return Diffusion.load_from_checkpoint(
-    config.eval.checkpoint_path,
-    tokenizer=tokenizer,
-    config=config)
+  else:
+    model= Diffusion.load_from_checkpoint(
+      config.eval.checkpoint_path,
+      tokenizer=tokenizer,
+      config=config)
 
+  return model
 
 @L.pytorch.utilities.rank_zero_only
 def _print_config(
@@ -218,11 +219,11 @@ def main(config):
     val_dataset = load_dataset('csv', data_files=config.data.valid.membrane_esm_valid_path)
     test_dataset = load_dataset('csv', data_files=config.data.test.membrane_esm_test_path)
 
-  lst = [i for i in range(1, 20)]
+  lst = [i for i in range(1, 200)]
 
-  train_dataset = train_dataset['train']#.select(lst)
-  val_dataset = val_dataset['train']#.select(lst)
-  test_dataset = test_dataset['train']#.select(lst)
+  train_dataset = train_dataset['train'].select(lst)
+  val_dataset = val_dataset['train'].select(lst)
+  test_dataset = test_dataset['train'].select(lst)
 
   data_module = dataloader.CustomDataModule(train_dataset, val_dataset, test_dataset, tokenizer, batch_size=config.loader.batch_size)
 

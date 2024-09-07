@@ -31,7 +31,7 @@ data:
     wrap: null
 
 loader:
-  global_batch_size: 128
+  global_batch_size: 64
   eval_global_batch_size: ${.global_batch_size}
   # Note: batch_size and eval_batch_size are **per machine**
   batch_size: ${div_up:${.global_batch_size}, ${eval:${trainer.devices} * ${trainer.num_nodes}}}
@@ -97,14 +97,14 @@ trainer:
   log_every_n_steps: 10
   limit_train_batches: 1.0   # train on full dataset, can be used to toggle quick run
   limit_val_batches: 1.0     # validate on full dataset, can be used to toggle quick run
-  val_check_interval: 38892
+  val_check_interval: 34
 
 wandb:
   project: MDpLM_ESM_pretraining_real
   notes: null
   group: programmablebio
   job_type: null
-  name: epochs10_lr3e-4_bsz128_gradclip1_beta-one0.9_beta-two0.999_all-params
+  name: epochs10_lr3e-4_bsz64_gradclip1_beta-one0.9_beta-two0.999_all-params_30k-seqs
   id: ${.name}_${seed}
 
 hydra:
