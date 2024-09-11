@@ -210,9 +210,11 @@ class Diffusion(L.LightningModule):
     elif self.config.backbone == "vanilla_esm_pretrain":
       self.backbone = WrapVanillaESM(bert_model_path=self.config.training.esm_model_path)
       self.backbone.unfreeze_all_layers()
+      self.backbone = torch.compile(self.backbone)
     elif self.config.backbone == 'membrane_esm_finetune':
       self.backbone = WrapMembraneESM(bert_model_path=self.config.checkpointing.fine_tuned_esm_mdlm_ckpt_path)
-      self.backbone.unfreeze_attn_layers()
+      self.backbone.unfreeze_all_layers()
+      self.backbone = torch.compile(self.backbone)
 
     # elif self.config.backbone == 'dimamba':
     #   self.backbone = dimamba.DiMamba(
@@ -380,7 +382,7 @@ class Diffusion(L.LightningModule):
           pin_memory=self.config.loader.pin_memory,
           sampler=dl_sampler,
           shuffle=False,
-          persistent_workers=True,
+          persistent_workers=False,
           collate_fn=collate_partial))
     self.trainer.fit_loop._combined_loader.flattened = updated_dls
 
@@ -480,7 +482,6 @@ class Diffusion(L.LightningModule):
       assert t.ndim == 2
       t = t.clamp(0., 1. - 1e-4)
     alpha_t = 1 - t + torch.zeros_like(xt)
-    sys.stdout.flush()
     alpha_s = 1 - (t - dt) + torch.zeros_like(xt)
 
     log_x_theta_at_x0 = torch.gather(
@@ -532,16 +533,6 @@ class Diffusion(L.LightningModule):
     return loss
 
   def on_train_epoch_start(self):
-    param_size = 0
-    for param in self.backbone.parameters():
-        param_size += param.nelement() * param.element_size()
-    buffer_size = 0
-    for buffer in self.backbone.buffers():
-        buffer_size += buffer.nelement() * buffer.element_size()
-    size_all_mb = (param_size + buffer_size) / 1024**2
-    print('model size: {:.3f}MB'.format(size_all_mb))
-    sys.stdout.flush()
-
     self.backbone.train()
     self.noise.train()
 
@@ -592,6 +583,7 @@ class Diffusion(L.LightningModule):
     self.noise.eval()
     assert self.valid_metrics.nll.mean_value == 0
     assert self.valid_metrics.nll.weight == 0
+    
 
   def validation_step(self, batch, batch_idx):
     loss = self._compute_loss(batch, prefix='val')
@@ -1198,9 +1190,37 @@ class Diffusion(L.LightningModule):
       sigma, dsigma = self.noise(t)
       unet_conditioning = sigma[:, None]
       move_chance = 1 - torch.exp(-sigma[:, None])
+    
+    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # print("Memory before noising")
+    # print(dev1_memory)
+    # print(dev2_memory)
+    # print(dev3_memory)
+    # sys.stdout.flush()
 
     xt = self.q_xt(x0, move_chance)
+
+    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # print("Memory after noising")
+    # print(dev1_memory)
+    # print(dev2_memory)
+    # print(dev3_memory)
+    # sys.stdout.flush()
+
     model_output = self.forward(xt, unet_conditioning, attention_mask)
+    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
+    # print("Memory after forward pass to ESM")
+    # print(dev1_memory)
+    # print(dev2_memory)
+    # print(dev3_memory)
+    # sys.stdout.flush()
+
     utils.print_nans(model_output, 'model_output')
 
     if self.parameterization == 'sedd':

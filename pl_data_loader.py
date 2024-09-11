@@ -737,7 +737,7 @@ def collate_fn(batch, tokenizer):
     }
 
 class CustomDataModule(pl.LightningDataModule):
-    def __init__(self, train_dataset, val_dataset, test_dataset, tokenizer, batch_size: int = 128):
+    def __init__(self, train_dataset, val_dataset, test_dataset, tokenizer, batch_size: int=16):
         super().__init__()
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
@@ -746,18 +746,18 @@ class CustomDataModule(pl.LightningDataModule):
         self.tokenizer = tokenizer
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=2,
+        return DataLoader(self.train_dataset, batch_size=self.batch_size,
                           collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
     
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=2,
+        return DataLoader(self.val_dataset, batch_size=self.batch_size,
                           collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
   
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=2,
+        return DataLoader(self.test_dataset, batch_size=self.batch_size,
                           collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
 

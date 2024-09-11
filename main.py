@@ -221,9 +221,9 @@ def main(config):
 
   lst = [i for i in range(1, 200)]
 
-  train_dataset = train_dataset['train'].select(lst)
-  val_dataset = val_dataset['train'].select(lst)
-  test_dataset = test_dataset['train'].select(lst)
+  train_dataset = train_dataset['train']#.select(lst)
+  val_dataset = val_dataset['train']#.select(lst)
+  test_dataset = test_dataset['train']#.select(lst)
 
   data_module = dataloader.CustomDataModule(train_dataset, val_dataset, test_dataset, tokenizer, batch_size=config.loader.batch_size)
 
