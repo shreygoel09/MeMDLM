@@ -15,14 +15,14 @@ def generate_scaffold_mdlm(sequence: str, generate_case: str, tokenizer, mdlm: D
     masked_sequence = mask_for_scaffold(sequence, generate_case)
     inputs = tokenizer(masked_sequence, return_tensors="pt").to(mdlm.device)
     
-    logits = mdlm._sample(x_input=inputs)
+    logits = mdlm._sample(x_input=inputs) # using sample, change config.sampling.steps to determine robustness
     
     mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
     logits_at_masks = logits[0, mask_token_indices]
 
     pred_tokens = []
     for i in range(len(mask_token_indices)):
-        # topk sampling
+        # topk sampling (unused because greedy should give best output)
         # topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
         # probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
         # predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
@@ -49,10 +49,11 @@ def mdlm_motif_benchmark(config):
     tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t33_650M_UR50D")
 
     # mlm_model = Diffusion.load_from_checkpoint(config.eval.checkpoint_path, config=config, tokenizer=tokenizer)
-    mlm_model = Diffusion(config, tokenizer=tokenizer)
+    config.training.esm_model_path = config.CKPT_DIR + "/best_model_epoch"
+    mlm_model = Diffusion(config, tokenizer=tokenizer) # should autoload the checkpoint with config
     mlm_model.eval()
-    # esm_model = AutoModel.from_pretrained("facebook/esm2_t36_3B_UR50D")
-    esm_model = AutoModel.from_pretrained("facebook/esm2_t6_8M_UR50D")
+    esm_model = AutoModel.from_pretrained("facebook/esm2_t36_3B_UR50D")
+    # esm_model = AutoModel.from_pretrained("facebook/esm2_t6_8M_UR50D") # model used for functionality testing
     
     print("load models...")
 
@@ -64,9 +65,7 @@ def mdlm_motif_benchmark(config):
         case_results = []
         for original_sequence in tqdm(test_sequences, desc=f"scaffolding ({generate_case}): "):
 
-            print("start sampling...")
             generated_sequence = generate_scaffold_mdlm(original_sequence, generate_case, tokenizer, mlm_model)
-            print("finished sampling")
             perplexity = mlm_model.compute_generative_perplexity(generated_sequence)
             cos_sim = calculate_cosine_sim(original_sequence, generated_sequence, tokenizer, esm_model, device)
             hamming_distance = calculate_hamming_dist(original_sequence, generated_sequence)
