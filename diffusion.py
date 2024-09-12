@@ -850,6 +850,7 @@ class Diffusion(L.LightningModule):
   #         nlls, first_eos[..., 1:] + token_mask[..., 1:])
 
 
+  @torch.no_grad()
   def compute_generative_perplexity(self, sequences):
     """Compute the pseudo-perplexity of the generated protein sequences."""
     total_nll = 0
@@ -862,7 +863,7 @@ class Diffusion(L.LightningModule):
         # Forward pass through the ESM model
         attention_mask = torch.ones_like(input_ids)
         if self.config.mode in ['train', 'ppl_eval']:
-          outputs = self.backbone.model.forward(input_ids=input_ids, attention_masks=attention_mask)
+          outputs = self.backbone.model.forward(input_ids=input_ids, attention_mask=attention_mask)
         elif self.config.mode == "sample_eval":
           outputs = self.backbone.model.forward(input_ids)
         logits = outputs[-1] # B, L, V
@@ -980,23 +981,27 @@ class Diffusion(L.LightningModule):
     return x
 
   @torch.no_grad()
-  def _sample(self, num_steps=None, eps=1e-5):
+  def _sample(self, num_steps=None, eps=1e-5, x_input = None):
     """Generate samples from the model."""
-    batch_size_per_gpu = self.config.loader.eval_batch_size
+    batch_size_per_gpu = self.config.eval.perplexity_batch_size
     if self.parameterization == 'ar':
       return self._ar_sampler(batch_size_per_gpu)
     # Lightning auto-casting is not working in this method for some reason
     if num_steps is None:
       num_steps = self.config.sampling.steps
-    x = self._sample_prior(
-      batch_size_per_gpu,
-      self.config.model.length).to(self.device)
+    if x_input is not None:
+      x = x_input.input_ids
+      attention_mask = x_input.attention_mask
+    else:
+      x = self._sample_prior(
+        batch_size_per_gpu,
+        self.config.model.length).to(self.device)
+      attention_mask = torch.ones_like(x)
     timesteps = torch.linspace(
       1, eps, num_steps + 1, device=self.device)
     dt = (1 - eps) / num_steps
     p_x0_cache = None
 
-    attention_mask = torch.ones_like(x)
     for i in range(num_steps):
       t = timesteps[i] * torch.ones(
         x.shape[0], 1, device=self.device)
