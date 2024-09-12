@@ -15,17 +15,21 @@ def generate_scaffold_mdlm(sequence: str, generate_case: str, tokenizer, mdlm: D
     masked_sequence = mask_for_scaffold(sequence, generate_case)
     inputs = tokenizer(masked_sequence, return_tensors="pt").to(mdlm.device)
     
-    logits = mdlm.forward(inputs.input_ids, sigma=torch.tensor([1], device=mdlm.device), attention_mask=inputs.attention_mask)
+    logits = mdlm._sample(x_input=inputs)
     
     mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
     logits_at_masks = logits[0, mask_token_indices]
 
     pred_tokens = []
     for i in range(len(mask_token_indices)):
-        topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
-        probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
-        predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
-        predicted_token_id = topk_indices[predicted_index].item()
+        # topk sampling
+        # topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
+        # probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
+        # predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
+        # predicted_token_id = topk_indices[predicted_index].item()
+
+        # greedy sampling for best performance
+        predicted_token_id = logits_at_masks[i].argmax(dim=-1).item()
         predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
 
         pred_tokens.append('G' if predicted_token == '' else predicted_token)
@@ -34,33 +38,8 @@ def generate_scaffold_mdlm(sequence: str, generate_case: str, tokenizer, mdlm: D
     for token in pred_tokens:
         generated_sequence = generated_sequence.replace("<mask>", token, 1)
 
-    return generated_sequence, mask_token_indices
+    return generated_sequence
 
-
-def calculate_perplexity(model: Diffusion, tokenizer, generated_sequence, mask_token_indices):
-    total_loss = 0.0
-    tensor_input = tokenizer.encode(generated_sequence, return_tensors='pt').to(model.device)
-
-    for i in mask_token_indices:
-        masked_input = tensor_input.clone()
-        masked_input[0, i] = tokenizer.mask_token_id
-    
-        labels = torch.full(tensor_input.shape, -100).to(model.device)
-        labels[0, i] = tensor_input[0, i]
-
-        with torch.no_grad():
-            outputs = model.forward(masked_input, sigma=torch.tensor([1], device=model.device), attention_mask=None)
-            loss = F.cross_entropy(outputs.squeeze(), labels.squeeze())
-            total_loss += loss.item()
-    
-    num_mask_tokens = len(mask_token_indices)
-    if num_mask_tokens == 0:
-        perplexity = 10000
-    else:
-        avg_loss = total_loss / num_mask_tokens
-        perplexity = math.exp(avg_loss)
-
-    return perplexity
 
 @hydra.main(version_base=None, config_path='configs', config_name='config')
 def mdlm_motif_benchmark(config):
@@ -85,8 +64,10 @@ def mdlm_motif_benchmark(config):
         case_results = []
         for original_sequence in tqdm(test_sequences, desc=f"scaffolding ({generate_case}): "):
 
-            generated_sequence, mask_token_idx = generate_scaffold_mdlm(original_sequence, generate_case, tokenizer, mlm_model)
-            perplexity = calculate_perplexity(mlm_model, tokenizer, generated_sequence, mask_token_idx)
+            print("start sampling...")
+            generated_sequence = generate_scaffold_mdlm(original_sequence, generate_case, tokenizer, mlm_model)
+            print("finished sampling")
+            perplexity = mlm_model.compute_generative_perplexity(generated_sequence)
             cos_sim = calculate_cosine_sim(original_sequence, generated_sequence, tokenizer, esm_model, device)
             hamming_distance = calculate_hamming_dist(original_sequence, generated_sequence)
         
