@@ -1,0 +1,9 @@
+best.ckpt
+data
+checkpoints
+.hypothesis
+__pycache__
+memdlm_errors.err
+memdlm_outs.out
+configs
+save_pid.txt

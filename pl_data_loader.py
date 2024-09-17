@@ -722,6 +722,32 @@ class CustomDataset(torch.utils.data.Dataset):
     item = self.dataset[actual_idx]
     return item
       
+def membrane_collate_fn(batch, tokenizer):
+    MAX_LENGTH = 1024
+    sequences = [item['Sequence'].upper() for item in batch]
+
+    masks = []
+    for item in batch:
+      if item["Label"] == 0: mask = [1 if i.isupper() else 0 for i in item["Sequence"]]
+      else: mask = [0 if i.isupper() else 1 for i in item["Sequence"]]
+      mask = [1] + mask
+      if len(mask) > MAX_LENGTH: mask = mask[:MAX_LENGTH]
+      elif len(mask) < MAX_LENGTH: mask += [1] * (MAX_LENGTH - len(mask))
+      
+      masks.append(torch.as_tensor(mask))
+    
+    mask_t = torch.stack(masks, dim=0)
+
+    tokens = tokenizer(sequences, return_tensors='pt', padding='max_length', truncation=True, max_length=MAX_LENGTH)
+
+    # setting up masking
+
+    return {
+        'input_ids': tokens['input_ids'],
+        'attention_mask': tokens['attention_mask'],
+        'mask': mask_t
+    }
+
 def collate_fn(batch, tokenizer):
     sequences = [item['Sequence'].upper() for item in batch]
     max_len = max([len(seq) for seq in sequences])
@@ -737,28 +763,29 @@ def collate_fn(batch, tokenizer):
     }
 
 class CustomDataModule(pl.LightningDataModule):
-    def __init__(self, train_dataset, val_dataset, test_dataset, tokenizer, batch_size: int=16):
+    def __init__(self, train_dataset, val_dataset, test_dataset, tokenizer, batch_size: int=8, collate_fn=collate_fn):
         super().__init__()
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
         self.batch_size = batch_size
         self.tokenizer = tokenizer
+        self.collate_fn = collate_fn
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size,
-                          collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
+                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
     
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size,
-                          collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
+                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
   
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size,
-                          collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
+                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
 
     

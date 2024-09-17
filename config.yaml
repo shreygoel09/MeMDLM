@@ -8,7 +8,7 @@ defaults:
 
 mode: train  # train / ppl_eval / sample_eval
 diffusion: absorbing_state
-backbone: vanilla_esm_pretrain  # dit / dimamba / ar / vanilla_esm_pretrain / membrane_esm_finetune
+backbone: membrane_esm_finetune  # dit / dimamba / ar / vanilla_esm_pretrain / membrane_esm_finetune
 parameterization: subs  # subs / d3pm / sedd
 time_conditioning: False
 T: 0  # 0 (continuous time) / 1000 
@@ -18,20 +18,20 @@ seed: 42
 
 data:
   train:
-    vanilla_esm_train_path: /workspace/sg666/MDpLM/data/uniref50/train.csv
-    membrane_esm_train_path: /workspace/sg666/MDpLM/data/membrane/train.csv
+    vanilla_esm_train_path: /workspace/vnt/MeMDLM/data/uniref50/train.csv
+    membrane_esm_train_path: /workspace/vnt/MeMDLM/data/membrane/train.csv
     wrap: null
   test:
-    vanilla_esm_test_path: /workspace/sg666/MDpLM/data/uniref50/test.csv
-    membrane_esm_test_path: /workspace/sg666/MDpLM/data/membrane/test.csv
+    vanilla_esm_test_path: /workspace/vnt/MeMDLM/data/uniref50/test.csv
+    membrane_esm_test_path: /workspace/vnt/MeMDLM/data/membrane/test.csv
     wrap: null
   valid:
-    vanilla_esm_valid_path: /workspace/sg666/MDpLM/data/uniref50/val.csv
-    membrane_esm_valid_path: /workspace/sg666/MDpLM/data/membrane/val.csv
+    vanilla_esm_valid_path: /workspace/vnt/MeMDLM/data/uniref50/val.csv
+    membrane_esm_valid_path: /workspace/vnt/MeMDLM/data/membrane/val.csv
     wrap: null
 
 loader:
-  global_batch_size: 16
+  global_batch_size: 8
   eval_global_batch_size: ${.global_batch_size}
   # Note: batch_size and eval_batch_size are **per machine**
   batch_size: ${div_up:${.global_batch_size}, ${eval:${trainer.devices} * ${trainer.num_nodes}}}
@@ -41,7 +41,7 @@ loader:
 
 sampling:
   predictor: ddpm_cache  # analytic, ddpm, ddpm_cache
-  steps: 128
+  steps: 32
   noise_removal: True
   # TODO(yair): @subham, why aren't these params under `eval`?
   num_sample_batches: 2  # Total samples: `num_gpus` * `loader.eval_batch_size` * num_sample_batches
@@ -56,11 +56,11 @@ training:
   importance_sampling: False
   sampling_eps: 1e-3
   change_of_variables: False
-  mlm_model_path: /workspace/sg666/MDpLM/benchmarks/MLM/model_ckpts/best_model_epoch
+  mlm_model_path: /workspace/vnt/MeMDLM/benchmarks/MLM/model_ckpts/best_model_epoch
   esm_model_path: facebook/esm2_t30_150M_UR50D
 
 eval:
-  checkpoint_path: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_mdlm/best.ckpt  # Used to evaluate a checkpoint after training.
+  checkpoint_path: /workspace/vnt/MeMDLM/checkpoints/vanilla_esm_pretrained_mdlm/best.ckpt  # Used to evaluate a checkpoint after training.
   disable_ema: False
   compute_generative_perplexity: False
   perplexity_batch_size: 8
@@ -70,8 +70,8 @@ eval:
 
 optim:
   weight_decay: 0.075
-  lr: 3e-4 #3e-6
-  beta1: 0.85 #0.9
+  lr: 3e-5 #3e-6
+  beta1: 0.9 #0.9
   beta2: 0.999 #0.999
   eps: 1e-8
 
@@ -92,31 +92,32 @@ trainer:
   gradient_clip_val: 1.0
   precision: bf16
   num_sanity_val_steps: 2
-  max_epochs: 10
+  max_epochs: 60
   max_steps: 1_000_000
   log_every_n_steps: 10
   limit_train_batches: 1.0   # train on full dataset, can be used to toggle quick run
   limit_val_batches: 1.0     # validate on full dataset, can be used to toggle quick run
-  val_check_interval: 5015
+  # val_check_interval: 5015
+  check_val_every_n_epoch: 2
 
 wandb:
-  project: MDpLM_ESM_pretraining_real
+  project: MDpLM_finetune_membrane_200k-seqs
   notes: null
   group: programmablebio
   job_type: null
-  name: epochs10_lr3e-4_bsz16_gradclip1_beta-one0.9_beta-two0.999_bf16_all-params_100k-seqs
+  name: epochs60_lr3e-5_bsz16_gradclip1_beta-one0.9_beta-two0.999_bf16_all-params_200k-seqs_loader_VT
   id: ${.name}_${seed}
 
 hydra:
   run:
-    dir: /workspace/sg666/MDpLM/outputs/${data.train}/${now:%Y.%m.%d}/${now:%H%M%S}
+    dir: /workspace/vnt/MeMDLM/outputs/${data.train}/${now:%Y.%m.%d}/${now:%H%M%S}
   job:
     chdir: true
 
 checkpointing:
   # Use custom `save_dir` if, e.g., saving to S3 bucket, otherwise leave this parameter as is
-  save_dir: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_mdlm/
+  save_dir: /workspace/vnt/MeMDLM/checkpoints/membrane_mdlm/
   # Note: `checkpoints` path should correspond to `checkpoint_every_n_steps.dirpath`
-  resume_from_ckpt: true
+  resume_from_ckpt: false
   resume_ckpt_path: ${.save_dir}/last.ckpt
-  fine_tuned_esm_mdlm_ckpt_path: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_automodel/
+  fine_tuned_esm_mdlm_ckpt_path: /workspace/vnt/MeMDLM/checkpoints/epochs10_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/

@@ -10,7 +10,7 @@ import lightning as L
 import numpy as np
 import torch.nn as nn
 import torch
-import dit
+# import dit
 import ema
 import time
 import gc
@@ -204,17 +204,17 @@ class Diffusion(L.LightningModule):
     self.parameterization = self.config.parameterization
 
 
-    if self.config.backbone == 'dit':
-      self.backbone = dit.DIT(
-        self.config, vocab_size=self.vocab_size, mlm_model_path=config.training.mlm_model_path)
-    elif self.config.backbone == "vanilla_esm_pretrain":
+    # if self.config.backbone == 'dit':
+    #   self.backbone = dit.DIT(
+    #     self.config, vocab_size=self.vocab_size, mlm_model_path=config.training.mlm_model_path)
+    if self.config.backbone == "vanilla_esm_pretrain":
       self.backbone = WrapVanillaESM(bert_model_path=self.config.training.esm_model_path)
       self.backbone.unfreeze_all_layers()
       self.backbone = torch.compile(self.backbone)
     elif self.config.backbone == 'membrane_esm_finetune':
       self.backbone = WrapMembraneESM(bert_model_path=self.config.checkpointing.fine_tuned_esm_mdlm_ckpt_path)
       self.backbone.unfreeze_all_layers()
-      self.backbone = torch.compile(self.backbone)
+      # self.backbone = torch.compile(self.backbone)
 
     # elif self.config.backbone == 'dimamba':
     #   self.backbone = dimamba.DiMamba(
@@ -467,7 +467,7 @@ class Diffusion(L.LightningModule):
   def forward(self, x, sigma, attention_mask):
     """Returns log score."""
     sigma = self._process_sigma(sigma)
-    with torch.cuda.amp.autocast(dtype=torch.float32):
+    with torch.amp.autocast("cuda", dtype=torch.float32):
       logits = self.backbone(x, attention_mask)
     
     if self.parameterization == 'subs':
@@ -510,8 +510,10 @@ class Diffusion(L.LightningModule):
       attention_mask = batch['attention_mask']
     else:
       attention_mask = None
+    if 'mask' in batch: mask = batch['mask']
+    else: mask = None
     
-    losses = self._loss(batch['input_ids'], attention_mask)
+    losses = self._loss(batch['input_ids'], attention_mask, mask)
     loss = losses.loss
 
     if prefix == 'train':
@@ -1177,7 +1179,7 @@ class Diffusion(L.LightningModule):
                           dim=-1,
                           index=x0[:, :, None]).squeeze(-1)
 
-  def _forward_pass_diffusion(self, x0, attention_mask):
+  def _forward_pass_diffusion(self, x0, attention_mask, mask=None):
     t = self._sample_t(x0.shape[0], x0.device)
     if self.T > 0:
       t = (t * self.T).to(torch.int)
@@ -1196,35 +1198,10 @@ class Diffusion(L.LightningModule):
       unet_conditioning = sigma[:, None]
       move_chance = 1 - torch.exp(-sigma[:, None])
     
-    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # print("Memory before noising")
-    # print(dev1_memory)
-    # print(dev2_memory)
-    # print(dev3_memory)
-    # sys.stdout.flush()
-
-    xt = self.q_xt(x0, move_chance)
-
-    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # print("Memory after noising")
-    # print(dev1_memory)
-    # print(dev2_memory)
-    # print(dev3_memory)
-    # sys.stdout.flush()
-
+    if mask is None: xt = self.q_xt(x0, move_chance)
+    else: xt = x0.where(mask==1, torch.full_like(x0, self.tokenizer.mask_token_id))
     model_output = self.forward(xt, unet_conditioning, attention_mask)
-    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # print("Memory after forward pass to ESM")
-    # print(dev1_memory)
-    # print(dev2_memory)
-    # print(dev3_memory)
-    # sys.stdout.flush()
+    print(self.tokenizer.decode(torch.argmax(model_output[0], dim=-1)))
 
     utils.print_nans(model_output, 'model_output')
 
@@ -1254,7 +1231,7 @@ class Diffusion(L.LightningModule):
     return - log_p_theta * (
       dsigma / torch.expm1(sigma))[:, None]
 
-  def _loss(self, x0, attention_mask):
+  def _loss(self, x0, attention_mask, mask=None):
     (input_tokens, output_tokens,
      attention_mask) = self._maybe_sub_sample(
        x0, attention_mask)
@@ -1264,7 +1241,7 @@ class Diffusion(L.LightningModule):
       loss = - logprobs.gather(
         -1, output_tokens[:, :, None])[:, :, 0]
     else:
-      loss = self._forward_pass_diffusion(input_tokens, attention_mask)
+      loss = self._forward_pass_diffusion(input_tokens, attention_mask, mask)
     
     nlls = loss * attention_mask
     count = attention_mask.sum()

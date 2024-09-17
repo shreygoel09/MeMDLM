@@ -18,7 +18,6 @@ from transformers import AutoTokenizer
 from datasets import load_from_disk, load_dataset
 
 #wandb.login(key="2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f")
-
 omegaconf.OmegaConf.register_new_resolver(
   'cwd', os.getcwd)
 omegaconf.OmegaConf.register_new_resolver(
@@ -225,7 +224,12 @@ def main(config):
   val_dataset = val_dataset['train']#.select(lst)
   test_dataset = test_dataset['train']#.select(lst)
 
-  data_module = dataloader.CustomDataModule(train_dataset, val_dataset, test_dataset, tokenizer, batch_size=config.loader.batch_size)
+  data_module = dataloader.CustomDataModule(
+    train_dataset, val_dataset, test_dataset, 
+    tokenizer, 
+    batch_size=config.loader.batch_size,
+    collate_fn = dataloader.membrane_collate_fn if config.backbone == "membrane_esm_finetune" else collate_fn
+   )
 
   if config.mode == 'sample_eval':
     generate_samples(config, logger, tokenizer)
