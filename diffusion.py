@@ -416,6 +416,8 @@ class Diffusion(L.LightningModule):
     # log prob at the mask index = - infinity
     logits = logits.logits
     logits[:, :, self.mask_index] += self.neg_infinity
+    logits[:, :, self.tokenizer.eos_token_id] += self.neg_infinity
+    logits[:, :, self.tokenizer.cls_token_id] += self.neg_infinity
     
     # Normalize the logits such that x.exp() is
     # a probability distribution over vocab_size.
@@ -1017,6 +1019,7 @@ class Diffusion(L.LightningModule):
           # Disable caching
           p_x0_cache = None
         x = x_next
+        # print(self.tokenizer.decode(x.squeeze()))
       else:
         x = self._analytic_update(x, t, dt, attention_mask)
 
@@ -1028,6 +1031,7 @@ class Diffusion(L.LightningModule):
       else:
         unet_conditioning = self.noise(t)[0]
         x = self.forward(x, unet_conditioning, attention_mask).argmax(dim=-1)
+        # print(self.tokenizer.decode(x.squeeze()))
     return x
 
   def restore_model_and_sample(self, num_steps, eps=1e-5):
@@ -1201,7 +1205,7 @@ class Diffusion(L.LightningModule):
     if mask is None: xt = self.q_xt(x0, move_chance)
     else: xt = x0.where(mask==1, torch.full_like(x0, self.tokenizer.mask_token_id))
     model_output = self.forward(xt, unet_conditioning, attention_mask)
-    print(self.tokenizer.decode(torch.argmax(model_output[0], dim=-1)))
+    # print(self.tokenizer.decode(torch.argmax(model_output[0], dim=-1)))
 
     utils.print_nans(model_output, 'model_output')
 

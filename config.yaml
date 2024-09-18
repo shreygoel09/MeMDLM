@@ -29,6 +29,7 @@ data:
     vanilla_esm_valid_path: /workspace/vnt/MeMDLM/data/uniref50/val.csv
     membrane_esm_valid_path: /workspace/vnt/MeMDLM/data/membrane/val.csv
     wrap: null
+  wrapping: true
 
 loader:
   global_batch_size: 8
@@ -105,7 +106,7 @@ wandb:
   notes: null
   group: programmablebio
   job_type: null
-  name: epochs60_lr3e-5_bsz16_gradclip1_beta-one0.9_beta-two0.999_bf16_all-params_200k-seqs_loader_VT
+  name: wrap_epochs60_lr3e-5_bsz16_gradclip1_beta-one0.9_beta-two0.999_bf16_all-params_200k-seqs_loader_VT
   id: ${.name}_${seed}
 
 hydra:

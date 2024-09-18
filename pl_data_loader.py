@@ -748,6 +748,27 @@ def membrane_collate_fn(batch, tokenizer):
         'mask': mask_t
     }
 
+def wrap_collate_fn(batch, tokenizer):
+  """Standard data collator that wraps sequences over padding them"""
+  # Define sequence size
+  chunk_size = 1024
+  eos_placeholder = "k"
+  eos = "<eos>"
+
+  # Wrap sequences by collecting and splitting them into chunks
+  sequences = eos_placeholder.join([item['Sequence'].upper() for item in batch])
+  sequences = eos_placeholder + sequences + eos_placeholder
+  wrapped_sequences = [sequences[i:i+chunk_size] for i in range(0, len(sequences), chunk_size)]
+  for ix, seq in enumerate(wrapped_sequences): wrapped_sequences[ix] = seq.replace(eos_placeholder, eos)
+
+  # Tokenize for input ids and attention masks
+  tokens = tokenizer(wrapped_sequences, return_tensors='pt', padding=True)
+
+  return {
+    "input_ids": tokens['input_ids'],
+    "attention_mask": tokens['attention_mask']
+  }
+
 def collate_fn(batch, tokenizer):
     sequences = [item['Sequence'].upper() for item in batch]
     max_len = max([len(seq) for seq in sequences])

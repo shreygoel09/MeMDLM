@@ -16,29 +16,30 @@ def generate_scaffold_mdlm(sequence: str, generate_case: str, tokenizer, mdlm: D
     inputs = tokenizer(masked_sequence, return_tensors="pt").to(mdlm.device)
     
     logits = mdlm._sample(x_input=inputs) # using sample, change config.sampling.steps to determine robustness
+    # print(tokenizer.decode(logits.squeeze(), skip_special_tokens=True))
     
     mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
     logits_at_masks = logits[0, mask_token_indices]
 
-    pred_tokens = []
-    for i in range(len(mask_token_indices)):
-        # topk sampling (unused because greedy should give best output)
-        # topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
-        # probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
-        # predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
-        # predicted_token_id = topk_indices[predicted_index].item()
+    # pred_tokens = []
+    # for i in range(len(mask_token_indices)):
+    #     # topk sampling (unused because greedy should give best output)
+    #     # topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
+    #     # probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
+    #     # predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
+    #     # predicted_token_id = topk_indices[predicted_index].item()
 
-        # greedy sampling for best performance
-        predicted_token_id = logits_at_masks[i].argmax(dim=-1).item()
-        predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
+    #     # greedy sampling for best performance
+    #     predicted_token_id = logits_at_masks[i].argmax(dim=-1).item()
+    #     predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
+    #     # print(predicted_token_id)
+    #     pred_tokens.append('G' if predicted_token == '' else predicted_token)
 
-        pred_tokens.append('G' if predicted_token == '' else predicted_token)
+    # generated_sequence = masked_sequence
+    # for token in pred_tokens:
+    #     generated_sequence = generated_sequence.replace("<mask>", token, 1)
 
-    generated_sequence = masked_sequence
-    for token in pred_tokens:
-        generated_sequence = generated_sequence.replace("<mask>", token, 1)
-
-    return generated_sequence
+    return tokenizer.decode(logits.squeeze(), skip_special_tokens=True)
 
 
 @hydra.main(version_base=None, config_path='configs', config_name='config')
@@ -48,12 +49,13 @@ def mdlm_motif_benchmark(config):
     test_sequences = pd.read_csv(path + "/data/membrane/test.csv")['Sequence'].tolist()
     tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t33_650M_UR50D")
 
-    # mlm_model = Diffusion.load_from_checkpoint(config.eval.checkpoint_path, config=config, tokenizer=tokenizer)
-    config.training.esm_model_path = config.CKPT_DIR + "/best_model_epoch"
-    mlm_model = Diffusion(config, tokenizer=tokenizer) # should autoload the checkpoint with config
+    mlm_model = Diffusion.load_from_checkpoint(config.CKPT_DIR + "/best.ckpt", config=config, tokenizer=tokenizer)
+    # config.training.esm_model_path = config.CKPT_DIR + "/best.ckpt"
+    # mlm_model = Diffusion(config, tokenizer=tokenizer) # should autoload the checkpoint with config
+    print(mlm_model.backbone.model.esm.encoder.layer[0].attention.self.query.weight)
     mlm_model.eval()
-    esm_model = AutoModel.from_pretrained("facebook/esm2_t36_3B_UR50D")
-    # esm_model = AutoModel.from_pretrained("facebook/esm2_t6_8M_UR50D") # model used for functionality testing
+    # esm_model = AutoModel.from_pretrained("facebook/esm2_t36_3B_UR50D")
+    esm_model = AutoModel.from_pretrained("facebook/esm2_t6_8M_UR50D") # model used for functionality testing
     
     print("load models...")
 
@@ -66,13 +68,15 @@ def mdlm_motif_benchmark(config):
         for original_sequence in tqdm(test_sequences, desc=f"scaffolding ({generate_case}): "):
 
             generated_sequence = generate_scaffold_mdlm(original_sequence, generate_case, tokenizer, mlm_model)
+            print(generated_sequence)
+            
             perplexity = mlm_model.compute_generative_perplexity(generated_sequence)
             cos_sim = calculate_cosine_sim(original_sequence, generated_sequence, tokenizer, esm_model, device)
             hamming_distance = calculate_hamming_dist(original_sequence, generated_sequence)
         
             case_results.append([original_sequence, generated_sequence, perplexity, cos_sim, hamming_distance])
 
-            # print(case_results)
+            print("perplexity: ", perplexity, "cos sim: ", cos_sim, "hamming: ", hamming_distance)
             sys.stdout.flush()
 
         df = pd.DataFrame(case_results, columns=['Original Sequence', 'Generated Sequence', 'Perplexity', 'Cosine Similarity', 'Hamming Distance'])

@@ -17,7 +17,7 @@ from lightning.pytorch.strategies import DDPStrategy
 from transformers import AutoTokenizer
 from datasets import load_from_disk, load_dataset
 
-#wandb.login(key="2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f")
+# wandb.login(key="a9e55597fa1a46f534bbf23e6afaaead56947774")
 omegaconf.OmegaConf.register_new_resolver(
   'cwd', os.getcwd)
 omegaconf.OmegaConf.register_new_resolver(
@@ -228,7 +228,7 @@ def main(config):
     train_dataset, val_dataset, test_dataset, 
     tokenizer, 
     batch_size=config.loader.batch_size,
-    collate_fn = dataloader.membrane_collate_fn if config.backbone == "membrane_esm_finetune" else collate_fn
+    collate_fn = dataloader.wrap_collate_fn if config.data.wrapping else dataloader.collate_fn
    )
 
   if config.mode == 'sample_eval':
