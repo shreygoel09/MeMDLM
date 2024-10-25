@@ -722,7 +722,61 @@ class CustomDataset(torch.utils.data.Dataset):
     item = self.dataset[actual_idx]
     return item
       
+def membrane_collate_fn(batch, tokenizer):
+    """Custom data collator that masks TM/soluble residues for focused training"""
+    MAX_LENGTH = 1024
+    sequences = [item['Sequence'].upper() for item in batch]
+
+    masks = []
+    for item in batch:
+      if item["Label"] == 0:
+        mask = [1 if i.isupper() else 0 for i in item["Sequence"]]
+      else:
+        mask = [0 if i.isupper() else 1 for i in item["Sequence"]]
+      mask = [1] + mask
+      if len(mask) > MAX_LENGTH: # Truncate
+        mask = mask[:MAX_LENGTH]
+      elif len(mask) < MAX_LENGTH: # Pad
+        mask += [1] * (MAX_LENGTH - len(mask))
+      
+      masks.append(torch.as_tensor(mask))
+    
+    mask_t = torch.stack(masks, dim=0)
+    tokens = tokenizer(sequences, return_tensors='pt', padding='max_length', truncation=True, max_length=MAX_LENGTH)
+
+    return {
+        'input_ids': tokens['input_ids'],
+        'attention_mask': tokens['attention_mask'],
+        'mask': mask_t
+    }
+
+def wrap_collate_fn(batch, tokenizer):
+  """Standard data collator that wraps sequences over padding them"""
+  # Define sequence size
+  chunk_size = 1024
+  eos_placeholder = "k"
+  eos = "<eos>"
+
+  # Wrap sequences by collecting and splitting them into chunks
+  # From MDLM paper: insert <eos> at start/end of chunks and in between sequences
+  sequences = eos_placeholder.join([item['Sequence'].upper() for item in batch])
+  sequences = eos_placeholder + sequences + eos_placeholder
+  wrapped_sequences = [sequences[i:i+chunk_size] for i in range(0, len(sequences), chunk_size)]
+  for idx, seq in enumerate(wrapped_sequences):
+    wrapped_sequences[idx] = seq.replace(eos_placeholder, eos)
+
+  # Tokenize for input ids and attention masks
+  tokens = tokenizer(wrapped_sequences, return_tensors='pt', padding=True)
+
+  return {
+    "input_ids": tokens['input_ids'],
+    "attention_mask": tokens['attention_mask']
+  }
+
+
+
 def collate_fn(batch, tokenizer):
+    """Standard data collator that truncates/pad sequences based on max_length"""
     sequences = [item['Sequence'].upper() for item in batch]
     max_len = max([len(seq) for seq in sequences])
     #labels = torch.tensor([item['labels'] for item in batch], dtype=torch.float32)
@@ -737,28 +791,29 @@ def collate_fn(batch, tokenizer):
     }
 
 class CustomDataModule(pl.LightningDataModule):
-    def __init__(self, train_dataset, val_dataset, test_dataset, tokenizer, batch_size: int=16):
+    def __init__(self, train_dataset, val_dataset, test_dataset, tokenizer, batch_size: int=8, collate_fn=collate_fn):
         super().__init__()
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
         self.batch_size = batch_size
         self.tokenizer = tokenizer
+        self.collate_fn = collate_fn
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size,
-                          collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
+                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
     
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size,
-                          collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
+                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
   
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size,
-                          collate_fn=partial(collate_fn, tokenizer=self.tokenizer),
+                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer),
                           num_workers=8, pin_memory=True)
 
-    
+  

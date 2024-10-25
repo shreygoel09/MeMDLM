@@ -10,7 +10,7 @@ import lightning as L
 import numpy as np
 import torch.nn as nn
 import torch
-import dit
+# import dit
 import ema
 import time
 import gc
@@ -204,15 +204,15 @@ class Diffusion(L.LightningModule):
     self.parameterization = self.config.parameterization
 
 
-    if self.config.backbone == 'dit':
-      self.backbone = dit.DIT(
-        self.config, vocab_size=self.vocab_size, mlm_model_path=config.training.mlm_model_path)
-    elif self.config.backbone == "vanilla_esm_pretrain":
+    # if self.config.backbone == 'dit':
+    #   self.backbone = dit.DIT(
+    #     self.config, vocab_size=self.vocab_size, mlm_model_path=config.training.mlm_model_path)
+    if self.config.backbone == "vanilla_esm_pretrain":
       self.backbone = WrapVanillaESM(bert_model_path=self.config.training.esm_model_path)
       self.backbone.unfreeze_all_layers()
-      self.backbone = torch.compile(self.backbone)
+      #self.backbone = torch.compile(self.backbone)
     elif self.config.backbone == 'membrane_esm_finetune':
-      self.backbone = WrapMembraneESM(bert_model_path=self.config.checkpointing.fine_tuned_esm_mdlm_ckpt_path)
+      self.backbone = WrapMembraneESM(bert_model_path=self.config.checkpointing.pretrained_esm_mdlm_automodel_path)
       self.backbone.unfreeze_all_layers()
       self.backbone = torch.compile(self.backbone)
 
@@ -338,7 +338,7 @@ class Diffusion(L.LightningModule):
     else:
       checkpoint['sampler']['random_state'] = None
     
-    self.backbone.save_model(self.config.checkpointing.fine_tuned_esm_mdlm_ckpt_path)
+    self.backbone.save_model(self.config.checkpointing.finetuned_esm_mdlm_automodel_path)
 
   def on_train_start(self):
     torch.cuda.empty_cache()
@@ -416,6 +416,8 @@ class Diffusion(L.LightningModule):
     # log prob at the mask index = - infinity
     logits = logits.logits
     logits[:, :, self.mask_index] += self.neg_infinity
+    # logits[:, :, self.tokenizer.eos_token_id] += self.neg_infinity
+    # logits[:, :, self.tokenizer.cls_token_id] += self.neg_infinity
     
     # Normalize the logits such that x.exp() is
     # a probability distribution over vocab_size.
@@ -464,12 +466,14 @@ class Diffusion(L.LightningModule):
     assert sigma.ndim == 1, sigma.shape
     return sigma
 
-  def forward(self, x, sigma, attention_mask):
+  def forward(self, x, sigma, attention_mask, print_logits=False):
     """Returns log score."""
     sigma = self._process_sigma(sigma)
-    with torch.cuda.amp.autocast(dtype=torch.float32):
-      logits = self.backbone(x, attention_mask)
-    
+    logits = self.backbone(x, attention_mask)
+    # if print_logits: 
+      # torch.set_printoptions(profile="full")
+      # print(logits)
+      # torch.set_printoptions(profile="default")
     if self.parameterization == 'subs':
       return self._subs_parameterization(logits=logits, xt=x)
     return logits
@@ -510,8 +514,10 @@ class Diffusion(L.LightningModule):
       attention_mask = batch['attention_mask']
     else:
       attention_mask = None
+    if 'mask' in batch: mask = batch['mask']
+    else: mask = None
     
-    losses = self._loss(batch['input_ids'], attention_mask)
+    losses = self._loss(batch['input_ids'], attention_mask, mask)
     loss = losses.loss
 
     if prefix == 'train':
@@ -851,14 +857,19 @@ class Diffusion(L.LightningModule):
 
 
   @torch.no_grad()
-  def compute_generative_perplexity(self, sequences):
+  def compute_masked_perplexity(self, sequences, masked):
     """Compute the pseudo-perplexity of the generated protein sequences."""
     total_nll = 0
     total_tokens = 0
 
     for sequence in sequences:
         # Tokenize the sequence
-        input_ids = self.tokenizer(sequence, return_tensors="pt").input_ids.to(self.device)
+        input_ids = self.tokenizer(masked, return_tensors="pt").input_ids.to(self.device)
+        gt_ids = self.tokenizer(sequence.upper(), return_tensors="pt").input_ids.to(self.device)
+
+        print(input_ids.shape)
+        print(gt_ids.shape)
+        sys.stdout.flush()
 
         # Forward pass through the ESM model
         attention_mask = torch.ones_like(input_ids)
@@ -871,18 +882,82 @@ class Diffusion(L.LightningModule):
         # Compute loss
         # shift_logits = logits[:, :-1, :].contiguous() # remove eos
         # shift_labels = input_ids[:, 1:].contiguous()
+        # print(masked)
+        # print(gt_ids.where(input_ids==32, torch.full_like(input_ids, -100)).view(-1))
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), 
-                              input_ids.view(-1), 
+                              gt_ids.where(input_ids==32, torch.full_like(input_ids, -100)).view(-1), 
                               reduction='sum')
 
         total_nll += loss.item()
         #total_tokens += (input_ids != self.tokenizer.pad_token_id).sum().item() - 1  # -1 for the first token
         total_tokens += input_ids.ne(self.tokenizer.pad_token_id).sum().item() # count in bos and eos
     # Compute pseudo-perplexity
+    # print(total_nll, ",;,", total_tokens)
     pseudo_perplexity = torch.exp(torch.tensor(total_nll / total_tokens))
     self.gen_ppl_metric.update(pseudo_perplexity)
     
     return pseudo_perplexity.item()
+  
+  @torch.no_grad()
+  def compute_generative_perplexity(
+    self,
+    text_samples: typing.List[str],
+    retokenize: bool = True,
+    max_length: typing.Optional[int] = None) -> None:
+    """Compute the generative perplexity of the model.
+
+    Args:
+        text_samples: List of sentences generated by the model.
+    
+    Returns:
+        Perplexity of the generated text under a different
+        pre-trained AR model (e.g., GPT2).
+    """
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+    eval_model = transformers.AutoModelForCausalLM.from_pretrained(
+      self.gen_ppl_eval_model_name_or_path).eval()
+    if max_length is None:
+      max_length = self.config.model.length
+    if 'llama2' not in self.gen_ppl_eval_model_name_or_path:
+      eval_model = eval_model.to(self.device)
+    # Re-tokenize using eval model's tokenizer
+    if retokenize:
+      (samples, attn_mask,
+       eval_context_size) = self.eval_retokenize(
+         text_samples, max_length=max_length)
+    else:
+      samples = text_samples
+      attn_mask = torch.ones(samples.shape).to(self.device)
+      eval_context_size = samples.shape[-1]
+    batch_size = min(
+      self.config.eval.perplexity_batch_size,
+      samples.shape[0])
+    num_batches = samples.shape[0] // batch_size
+    for i in range(num_batches):
+      _samples = torch.split(
+        samples[i * batch_size: (i + 1) * batch_size],
+        eval_context_size,
+        dim=-1)
+      _attn_mask = torch.split(
+        attn_mask[i * batch_size: (i + 1) * batch_size],
+        eval_context_size,
+        dim=-1)
+      for (sample_chunk, attn_mask_chunk) in zip(
+        _samples, _attn_mask):
+        logits = eval_model(
+          sample_chunk, attention_mask=attn_mask_chunk)[0]
+        logits = logits.transpose(-1, -2)
+        
+        nlls = F.cross_entropy(logits[..., :-1],
+                               sample_chunk[..., 1:],
+                               reduction='none')
+        first_eos = (sample_chunk == self.eval_model_tokenizer\
+                     .eos_token_id).cumsum(-1) == 1
+        token_mask = (
+          sample_chunk
+          != self.eval_model_tokenizer.eos_token_id)
+        self.gen_ppl_metric.update(
+          nlls, first_eos[..., 1:] + token_mask[..., 1:])
 
   def q_xt(self, x, move_chance):
     """Computes the noisy sample xt.
@@ -993,28 +1068,23 @@ class Diffusion(L.LightningModule):
       x = x_input.input_ids
       attention_mask = x_input.attention_mask
     else:
-      x = self._sample_prior(
-        batch_size_per_gpu,
-        self.config.model.length).to(self.device)
+      x = self._sample_prior(batch_size_per_gpu, self.config.model.length).to(self.device)
       attention_mask = torch.ones_like(x)
-    timesteps = torch.linspace(
-      1, eps, num_steps + 1, device=self.device)
+    timesteps = torch.linspace(1, eps, num_steps + 1, device=self.device)
     dt = (1 - eps) / num_steps
     p_x0_cache = None
 
     for i in range(num_steps):
-      t = timesteps[i] * torch.ones(
-        x.shape[0], 1, device=self.device)
+      t = timesteps[i] * torch.ones(x.shape[0], 1, device=self.device)
       if self.sampler == 'ddpm':
         x = self._ddpm_update(x, t, dt)
       elif self.sampler == 'ddpm_cache':
-        p_x0_cache, x_next = self._ddpm_caching_update(
-          x, t, dt, p_x0=p_x0_cache, attention_mask=attention_mask)
-        if (not torch.allclose(x_next, x)
-            or self.time_conditioning):
+        p_x0_cache, x_next = self._ddpm_caching_update(x, t, dt, p_x0=p_x0_cache, attention_mask=attention_mask)
+        if (not torch.allclose(x_next, x) or self.time_conditioning):
           # Disable caching
           p_x0_cache = None
         x = x_next
+        # print(self.tokenizer.decode(x.squeeze()))
       else:
         x = self._analytic_update(x, t, dt, attention_mask)
 
@@ -1025,7 +1095,8 @@ class Diffusion(L.LightningModule):
         x = self._denoiser_update(x, t)
       else:
         unet_conditioning = self.noise(t)[0]
-        x = self.forward(x, unet_conditioning, attention_mask).argmax(dim=-1)
+        x = self.forward(x, unet_conditioning, attention_mask, print_logits=True).argmax(dim=-1)
+        # print(self.tokenizer.decode(x.squeeze()))
     return x
 
   def restore_model_and_sample(self, num_steps, eps=1e-5):
@@ -1051,8 +1122,8 @@ class Diffusion(L.LightningModule):
     self.noise.train()
     return samples
 
-  def get_score(self, x, sigma):
-    model_output = self.forward(x, sigma)
+  def get_score(self, x, sigma, attention_mask=None):
+    model_output = self.forward(x, sigma, attention_mask)
     if self.parameterization == 'subs':
       # score(x, t) = p_t(y) / p_t(x)
       # => log score(x, t) = log p_t(y) - log p_t(x)
@@ -1103,11 +1174,11 @@ class Diffusion(L.LightningModule):
     score[..., self.mask_index] += extra_const
     return score
 
-  def _analytic_update(self, x, t, step_size):
+  def _analytic_update(self, x, t, step_size, attention_mask=None):
     curr_sigma, _ = self.noise(t)
     next_sigma, _ = self.noise(t - step_size)
     dsigma = curr_sigma - next_sigma
-    score = self.get_score(x, curr_sigma)
+    score = self.get_score(x, curr_sigma, attention_mask)
     stag_score = self._staggered_score(score, dsigma)
     probs = stag_score * self._transp_transition(x, dsigma)
     return _sample_categorical(probs)
@@ -1177,7 +1248,7 @@ class Diffusion(L.LightningModule):
                           dim=-1,
                           index=x0[:, :, None]).squeeze(-1)
 
-  def _forward_pass_diffusion(self, x0, attention_mask):
+  def _forward_pass_diffusion(self, x0, attention_mask, mask=None):
     t = self._sample_t(x0.shape[0], x0.device)
     if self.T > 0:
       t = (t * self.T).to(torch.int)
@@ -1196,35 +1267,10 @@ class Diffusion(L.LightningModule):
       unet_conditioning = sigma[:, None]
       move_chance = 1 - torch.exp(-sigma[:, None])
     
-    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # print("Memory before noising")
-    # print(dev1_memory)
-    # print(dev2_memory)
-    # print(dev3_memory)
-    # sys.stdout.flush()
-
-    xt = self.q_xt(x0, move_chance)
-
-    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # print("Memory after noising")
-    # print(dev1_memory)
-    # print(dev2_memory)
-    # print(dev3_memory)
-    # sys.stdout.flush()
-
+    if mask is None: xt = self.q_xt(x0, move_chance)
+    else: xt = x0.where(mask==1, torch.full_like(x0, self.tokenizer.mask_token_id))
     model_output = self.forward(xt, unet_conditioning, attention_mask)
-    # dev1_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev2_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # dev3_memory = torch.cuda.max_memory_allocated(device=self.device)
-    # print("Memory after forward pass to ESM")
-    # print(dev1_memory)
-    # print(dev2_memory)
-    # print(dev3_memory)
-    # sys.stdout.flush()
+    # print(self.tokenizer.decode(torch.argmax(model_output[0], dim=-1)))
 
     utils.print_nans(model_output, 'model_output')
 
@@ -1254,7 +1300,7 @@ class Diffusion(L.LightningModule):
     return - log_p_theta * (
       dsigma / torch.expm1(sigma))[:, None]
 
-  def _loss(self, x0, attention_mask):
+  def _loss(self, x0, attention_mask, mask=None):
     (input_tokens, output_tokens,
      attention_mask) = self._maybe_sub_sample(
        x0, attention_mask)
@@ -1264,7 +1310,7 @@ class Diffusion(L.LightningModule):
       loss = - logprobs.gather(
         -1, output_tokens[:, :, None])[:, :, 0]
     else:
-      loss = self._forward_pass_diffusion(input_tokens, attention_mask)
+      loss = self._forward_pass_diffusion(input_tokens, attention_mask, mask)
     
     nlls = loss * attention_mask
     count = attention_mask.sum()

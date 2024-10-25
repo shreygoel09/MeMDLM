@@ -18,17 +18,18 @@ seed: 42
 
 data:
   train:
-    vanilla_esm_train_path: /workspace/sg666/MDpLM/data/uniref50/train.csv
-    membrane_esm_train_path: /workspace/sg666/MDpLM/data/membrane/train.csv
+    vanilla_esm_train_path: /workspace/sg666/MDpLM/data/!old/uniref50/100k_seqs/train.csv
+    membrane_esm_train_path: /workspace/sg666/MDpLM/data/!old/membrane/train.csv
     wrap: null
   test:
-    vanilla_esm_test_path: /workspace/sg666/MDpLM/data/uniref50/test.csv
-    membrane_esm_test_path: /workspace/sg666/MDpLM/data/membrane/test.csv
+    vanilla_esm_test_path: /workspace/sg666/MDpLM/data/!old/uniref50/100k_seqs/test.csv
+    membrane_esm_test_path: /workspace/sg666/MDpLM/data/!old/membrane/test.csv
     wrap: null
   valid:
-    vanilla_esm_valid_path: /workspace/sg666/MDpLM/data/uniref50/val.csv
-    membrane_esm_valid_path: /workspace/sg666/MDpLM/data/membrane/val.csv
+    vanilla_esm_valid_path: /workspace/sg666/MDpLM/data/!old/uniref50/100k_seqs/val.csv
+    membrane_esm_valid_path: /workspace/sg666/MDpLM/data/!old/membrane/val.csv
     wrap: null
+  batching: wrapping # padding / wrapping
 
 loader:
   global_batch_size: 16
@@ -56,23 +57,25 @@ training:
   importance_sampling: False
   sampling_eps: 1e-3
   change_of_variables: False
-  mlm_model_path: /workspace/sg666/MDpLM/benchmarks/MLM/model_ckpts/best_model_epoch
-  esm_model_path: facebook/esm2_t30_150M_UR50D
+  mlm_model_path: /workspace/sg666/MDpLM/benchmarks/MLM/model_ckpts_650M/best_model_epoch
+  esm_model_path: facebook/esm2_t33_650M_UR50D
+  focus_mask: False
 
 eval:
-  checkpoint_path: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_mdlm/best.ckpt  # Used to evaluate a checkpoint after training.
+  checkpoint_path: /workspace/sg666/MDpLM/checkpoints/!old/membrane_mdlm/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/checkpoints/best.ckpt # Used to evaluate a checkpoint after training.
   disable_ema: False
   compute_generative_perplexity: False
   perplexity_batch_size: 8
   compute_perplexity_on_sanity: False
   gen_ppl_eval_model_name_or_path: gpt2-large  # gpt2-large, meta-llama/Llama-2-7b-hf
   generate_samples: True
+  generation_model: /workspace/sg666/MDpLM/checkpoints/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/
 
 optim:
   weight_decay: 0.075
-  lr: 3e-4 #3e-6
-  beta1: 0.85 #0.9
-  beta2: 0.999 #0.999
+  lr: 3e-4
+  beta1: 0.9
+  beta2: 0.999
   eps: 1e-8
 
 Model:
@@ -81,6 +84,7 @@ Model:
   n_heads: 20
   n_blocks: 4
   dropout: 0.5
+  length: null #512
   scale_by_sigma: True
 
 trainer:
@@ -90,21 +94,21 @@ trainer:
   devices: ${device_count:}
   accumulate_grad_batches: ${div_up:${loader.global_batch_size}, ${eval:${trainer.devices} * ${loader.batch_size} * ${trainer.num_nodes}}}
   gradient_clip_val: 1.0
-  precision: bf16
+  precision: 64-true
   num_sanity_val_steps: 2
   max_epochs: 10
   max_steps: 1_000_000
   log_every_n_steps: 10
   limit_train_batches: 1.0   # train on full dataset, can be used to toggle quick run
   limit_val_batches: 1.0     # validate on full dataset, can be used to toggle quick run
-  val_check_interval: 5015
+  val_check_interval: 13 #954
 
 wandb:
-  project: MDpLM_ESM_pretraining_real
+  project: MeMDLM_pretrain_100k-seqs_650M
   notes: null
   group: programmablebio
   job_type: null
-  name: epochs10_lr3e-4_bsz16_gradclip1_beta-one0.9_beta-two0.999_bf16_all-params_100k-seqs
+  name: test #epochs10_lr3e-4_bsz8_64-true_all-params_gradclip1_beta-one0.9_beta-two0.999
   id: ${.name}_${seed}
 
 hydra:
@@ -115,8 +119,9 @@ hydra:
 
 checkpointing:
   # Use custom `save_dir` if, e.g., saving to S3 bucket, otherwise leave this parameter as is
-  save_dir: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_mdlm/
+  save_dir: /workspace/sg666/MDpLM/checkpoints/
   # Note: `checkpoints` path should correspond to `checkpoint_every_n_steps.dirpath`
-  resume_from_ckpt: true
-  resume_ckpt_path: ${.save_dir}/last.ckpt
-  fine_tuned_esm_mdlm_ckpt_path: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_automodel/
+  resume_from_ckpt: false
+  resume_ckpt_path: ${.save_dir}/checkpoints/last.ckpt #/checkpoints/last.ckpt
+  pretrained_esm_mdlm_automodel_path: /workspace/sg666/MDpLM/checkpoints/vanilla_esm_pretrained_automodel/epochs10_lr3e-4_bsz8_all-params_gradclip1_beta-one0.9_beta-two0.999
+  finetuned_esm_mdlm_automodel_path: /workspace/sg666/MDpLM/checkpoints/membrane_mdlm/
