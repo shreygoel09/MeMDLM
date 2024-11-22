@@ -104,7 +104,7 @@ trainer:
   val_check_interval: 13 #954
 
 wandb:
-  project: MeMDLM_pretrain_100k-seqs_650M
+  project: MeMDLM_pretrain_400k-seqs_650M_wrapping
   notes: null
   group: programmablebio
   job_type: null
