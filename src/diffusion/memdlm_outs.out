@@ -1,0 +1,167 @@
+CONFIG
+├── mode
+│   └── train                                                                   
+├── diffusion
+│   └── absorbing_state                                                         
+├── backbone
+│   └── vanilla_esm_pretrain                                                    
+├── parameterization
+│   └── subs                                                                    
+├── time_conditioning
+│   └── False                                                                   
+├── T
+│   └── 0                                                                       
+├── subs_masking
+│   └── False                                                                   
+├── seed
+│   └── 42                                                                      
+├── data
+│   └── train:                                                                  
+│         vanilla_esm_train_path: /workspace/sg666/MeMDLM/data/uniref50/train.cs
+│         membrane_esm_train_path: /workspace/sg666/MeMDLM/data/membrane/train.c
+│         wrap: null                                                            
+│       test:                                                                   
+│         vanilla_esm_test_path: /workspace/sg666/MeMDLM/data/uniref50/test.csv 
+│         membrane_esm_test_path: /workspace/sg666/MeMDLM/data/membrane/test.csv
+│         wrap: null                                                            
+│       valid:                                                                  
+│         vanilla_esm_valid_path: /workspace/sg666/MeMDLM/data/uniref50/val.csv 
+│         membrane_esm_valid_path: /workspace/sg666/MeMDLM/data/membrane/val.csv
+│         wrap: null                                                            
+│       batching: padding                                                       
+│                                                                               
+├── loader
+│   └── global_batch_size: 8                                                    
+│       eval_global_batch_size: 8                                               
+│       batch_size: 2                                                           
+│       eval_batch_size: 2                                                      
+│       num_workers: 112                                                        
+│       pin_memory: true                                                        
+│                                                                               
+├── sampling
+│   └── predictor: ddpm_cache                                                   
+│       steps: 128                                                              
+│       noise_removal: true                                                     
+│       num_sample_batches: 2                                                   
+│       num_sample_log: 2                                                       
+│       semi_ar: false                                                          
+│       stride_length: 1                                                        
+│       num_strides: 1                                                          
+│                                                                               
+├── training
+│   └── ema: 0.9999                                                             
+│       antithetic_sampling: true                                               
+│       importance_sampling: false                                              
+│       sampling_eps: 0.001                                                     
+│       change_of_variables: false                                              
+│       mlm_model_path: /workspace/sg666/MeMDLM/benchmarks/MLM/model_ckpts_650M/
+│       esm_model_path: facebook/esm2_t33_650M_UR50D                            
+│       focus_mask: false                                                       
+│                                                                               
+├── eval
+│   └── checkpoint_path: /workspace/sg666/MeMDLM/checkpoints/!old/membrane_mdlm/
+│       disable_ema: false                                                      
+│       compute_generative_perplexity: false                                    
+│       perplexity_batch_size: 8                                                
+│       compute_perplexity_on_sanity: false                                     
+│       gen_ppl_eval_model_name_or_path: gpt2-large                             
+│       generate_samples: true                                                  
+│       generation_model: /workspace/sg666/MeMDLM/checkpoints/membrane_automodel
+│                                                                               
+├── optim
+│   └── weight_decay: 0.075                                                     
+│       lr: 0.0003                                                              
+│       beta1: 0.9                                                              
+│       beta2: 0.999                                                            
+│       eps: 1.0e-08                                                            
+│                                                                               
+├── Model
+│   └── hidden_size: 1280                                                       
+│       cond_dim: 256                                                           
+│       n_heads: 20                                                             
+│       n_blocks: 4                                                             
+│       dropout: 0.5                                                            
+│       length: null                                                            
+│       scale_by_sigma: true                                                    
+│                                                                               
+├── trainer
+│   └── _target_: lightning.Trainer                                             
+│       accelerator: cuda                                                       
+│       num_nodes: 1                                                            
+│       devices: 6                                                              
+│       accumulate_grad_batches: 1                                              
+│       gradient_clip_val: 1.0                                                  
+│       precision: 64                                                           
+│       num_sanity_val_steps: 2                                                 
+│       max_epochs: 10                                                          
+│       max_steps: 1000000                                                      
+│       log_every_n_steps: 10                                                   
+│       limit_train_batches: 1.0                                                
+│       limit_val_batches: 1.0                                                  
+│       val_check_interval: 10                                                  
+│                                                                               
+├── wandb
+│   └── project: MeMDLM_pretrain_400k_650M                                      
+│       notes: null                                                             
+│       group: programmablebio                                                  
+│       job_type: null                                                          
+│       name: test                                                              
+│       id: test_42                                                             
+│                                                                               
+├── checkpointing
+│   └── save_dir: /workspace/sg666/MeMDLM/checkpoints/                          
+│       resume_from_ckpt: false                                                 
+│       resume_ckpt_path: /workspace/sg666/MeMDLM/checkpoints//checkpoints/last.
+│       pretrained_esm_mdlm_automodel_path: /workspace/sg666/MeMDLM/checkpoints/
+│       finetuned_esm_mdlm_automodel_path: /workspace/sg666/MeMDLM/checkpoints/m
+│                                                                               
+├── callbacks
+│   └── checkpoint_every_n_steps:                                               
+│         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
+│         save_top_k: -1                                                        
+│         save_last: true                                                       
+│         dirpath: /workspace/sg666/MeMDLM/checkpoints//checkpoints             
+│         verbose: true                                                         
+│         auto_insert_metric_name: false                                        
+│         every_n_train_steps: 500                                              
+│       checkpoint_monitor:                                                     
+│         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
+│         monitor: val/nll                                                      
+│         mode: min                                                             
+│         save_top_k: 1                                                         
+│         save_last: false                                                      
+│         dirpath: /workspace/sg666/MeMDLM/checkpoints//checkpoints             
+│         filename: best                                                        
+│         auto_insert_metric_name: false                                        
+│         verbose: true                                                         
+│       learning_rate_monitor:                                                  
+│         _target_: lightning.pytorch.callbacks.LearningRateMonitor             
+│         logging_interval: step                                                
+│                                                                               
+├── model
+│   └── name: small                                                             
+│       type: ddit                                                              
+│       hidden_size: 768                                                        
+│       cond_dim: 128                                                           
+│       length: 1024                                                            
+│       n_blocks: 12                                                            
+│       n_heads: 12                                                             
+│       scale_by_sigma: true                                                    
+│       dropout: 0.1                                                            
+│       tie_word_embeddings: false                                              
+│                                                                               
+├── strategy
+│   └── _target_: lightning.pytorch.strategies.DDPStrategy                      
+│       find_unused_parameters: false                                           
+│                                                                               
+├── noise
+│   └── type: loglinear                                                         
+│       sigma_min: 0.0001                                                       
+│       sigma_max: 20                                                           
+│                                                                               
+└── lr_scheduler
+    └── _target_: transformers.get_constant_schedule_with_warmup                
+        num_warmup_steps: 2500                                                  
+                                                                                
+[2024-11-11 04:26:04,800][__main__][INFO] - Starting Training.
+Sanity Checking: |          | 0/? [00:00<?, ?it/s]Sanity Checking:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:  50%|█████     | 1/2 [00:03<00:03,  0.33it/s]Sanity Checking DataLoader 0: 100%|██████████| 2/2 [00:05<00:00,  0.34it/s]                                                                           Training: |          | 0/? [00:00<?, ?it/s]Training:   0%|          | 0/17 [00:00<?, ?it/s]Epoch 0:   0%|          | 0/17 [00:00<?, ?it/s] Epoch 0:   6%|▌         | 1/17 [00:08<02:15,  0.12it/s]Epoch 0:   6%|▌         | 1/17 [00:08<02:15,  0.12it/s, v_num=t_42]

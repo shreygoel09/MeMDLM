@@ -1,0 +1,84 @@
+import torch.nn as nn
+
+
+# Main encoder class to process sequence embeddings
+class ValueTrunk(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=config.value.model.d_model,
+            nhead=config.value.model.num_heads,
+            dropout=config.value.model.dropout,
+            batch_first=True
+        )
+        self.encoder = nn.TransformerEncoder(encoder_layer, config.value.model.num_layers)
+
+        self.layer_norm = nn.LayerNorm(config.value.model.d_model)
+        self.dropout = nn.Dropout(config.value.model.dropout)
+
+    def forward(self, embeds, mask):
+        """
+        Core of acquisition function to process embeddings.
+
+        Args:
+            embeds (torch.Tensor): Embeddings [batch_size x seq_len x d_model]
+        Returns:
+            torch.Tensor: Processed embeddings [batch_size x seq_len x d_model]
+        """
+
+        if mask is not None:
+            mask = mask.unsqueeze(1).unsqueeze(2)
+            mask = mask.expand(-1, -1, embeds.size(1), -1)
+            mask = (1.0 - mask) * 1e-9
+
+        encodings = self.encoder(embeds, src_key_padding_mask=~mask.bool() if mask is not None else None)
+        encodings = self.layer_norm(encodings)
+        encodings = self.dropout(encodings)
+        return encodings
+
+
+# MLP prediction head
+class ValueHead(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(config.value.model.d_model, config.value.model.d_model // 2),
+            nn.ReLU(),
+            nn.Dropout(config.value.model.dropout),
+            nn.Linear(config.value.model.d_model // 2, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, embeds):
+        """
+        Predict per-residue solubility from processed embeddings.
+
+        Args:
+            embeds (torch.Tensor): Processed embeddings [batch_size x seq_len x d_model]
+        Returns:
+            torch.Tensor: Per-residue predictions [batch_size x seq_len x 1]
+        """
+        preds = self.mlp(embeds) 
+        return preds
+
+
+# Combined module for trunk and head
+class ValueModule(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.trunk = ValueTrunk(config)
+        self.head = ValueHead(config)
+
+    def forward(self, embeds, attention_mask=None):
+        """
+        Combine prediction trunk and head into one module.
+
+        Args:
+            embeds (torch.Tensor): Input embeddings [batch_size x seq_len x d_model]
+        Returns:
+            torch.Tensor: Per-residue predictions [batch_size x seq_len x 1]
+        """
+        encodings = self.trunk(embeds, attention_mask)
+        preds = self.head(encodings)  
+        return preds
