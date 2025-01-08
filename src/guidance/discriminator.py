@@ -26,13 +26,7 @@ class ValueTrunk(nn.Module):
         Returns:
             torch.Tensor: Processed embeddings [batch_size x seq_len x d_model]
         """
-
-        if mask is not None:
-            mask = mask.unsqueeze(1).unsqueeze(2)
-            mask = mask.expand(-1, -1, embeds.size(1), -1)
-            mask = (1.0 - mask) * 1e-9
-
-        encodings = self.encoder(embeds, src_key_padding_mask=~mask.bool() if mask is not None else None)
+        encodings = self.encoder(embeds, src_key_padding_mask=~mask.squeeze(1).bool())
         encodings = self.layer_norm(encodings)
         encodings = self.dropout(encodings)
         return encodings
@@ -57,7 +51,7 @@ class ValueHead(nn.Module):
         Args:
             embeds (torch.Tensor): Processed embeddings [batch_size x seq_len x d_model]
         Returns:
-            torch.Tensor: Per-residue predictions [batch_size x seq_len x 1]
+            preds (torch.Tensor): Per-residue predictions [batch_size x seq_len x 1]
         """
         preds = self.mlp(embeds) 
         return preds
@@ -71,14 +65,7 @@ class ValueModule(nn.Module):
         self.head = ValueHead(config)
 
     def forward(self, embeds, attention_mask=None):
-        """
-        Combine prediction trunk and head into one module.
-
-        Args:
-            embeds (torch.Tensor): Input embeddings [batch_size x seq_len x d_model]
-        Returns:
-            torch.Tensor: Per-residue predictions [batch_size x seq_len x 1]
-        """
+        """Combine prediction trunk and head into one module."""
         encodings = self.trunk(embeds, attention_mask)
-        preds = self.head(encodings)  
+        preds = self.head(encodings).squeeze(-1)
         return preds

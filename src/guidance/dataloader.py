@@ -6,68 +6,64 @@ import lightning.pytorch as pl
 
 from transformers import AutoModel, AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
+
 from functools import partial
 from omegaconf import OmegaConf
 
 from utils import NoisingScheduler
 
 
-def collate_fn(batch, tokenizer, noise_scheduler):
-    sequences = [item['Sequence'] for item in batch]
-    tokens = tokenizer(sequences, return_tensors='pt', padding='max_length', truncation=True, max_length=1024)
-    input_ids, attention_mask = tokens['input_ids'], tokens['attention_mask']
-
-    noised_tokens = noise_scheduler(input_ids, attention_mask)
-
-    return {
-        'input_ids': input_ids,
-        'attention_mask': attention_mask,
-        'noised_tokens': noised_tokens
-    }
-
-def get_datasets(config):
-    train_dataset = MembraneDataset(config, config.data.train.membrane_esm_train_path, config.model.mdlm_model_path)
-    val_dataset = MembraneDataset(config, config.data.valid.membrane_esm_train_path, config.model.mdlm_model_path)
-    test_dataset = MembraneDataset(config, config.data.test.membrane_esm_train_path, config.model.mdlm_model_path)
-    
-    return  {
-        "train": train_dataset,
-        "val": val_dataset,
-        "test": test_dataset
-    }
-
 class MembraneDataset(Dataset):
     def __init__(self, config, data_path, mdlm_model_path):
         self.config = config
-        self.data = pd.read_csv(data_path)
+        self.data = pd.read_csv(data_path)[:5]
         self.mdlm_model = AutoModel.from_pretrained(mdlm_model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(mdlm_model_path)
-        self.noise = NoisingScheduler(self.config)
+        self.noise = NoisingScheduler(self.config, self.tokenizer)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        sequence = self.data.iloc[idx]["sequence"]
-        embeddings, attention_mask = self._get_embeddings(sequence)
-        return embeddings, attention_mask
+        sequence = self.data.iloc[idx]["Sequence"]
+
+        tokens = self.tokenizer(sequence.upper(), return_tensors='pt', padding='max_length', truncation=True, max_length=1024)
+        input_ids, attention_masks = tokens['input_ids'], tokens['attention_mask']
+
+        # use MDLM noising scheduler and embeddings for classifier training
+        noised_tokens = self.noise(input_ids, attention_masks)
+        embeddings = self._get_embeddings(noised_tokens, attention_masks)
+
+        # create and manually pad per-residue labels
+        labels = torch.tensor([1 if residue.islower() else 0 for residue in sequence], dtype=torch.float)
+        padded_labels = torch.cat([labels, torch.full(size=(input_ids.shape[1] - len(labels),), fill_value=-1)])
+
+        return {
+            "embeddings": embeddings,
+            "attention_mask": attention_masks,
+            "labels": padded_labels
+        }
 
     def _get_embeddings(self, noised_tokens, attention_mask):
         """Following the LaMBO-2 implementation, we obtain embeddings
         from the denoising model to train the discriminator network.
-
-        Args:
-            sequence (String): protein sequence to be optimized
-        Returns:
-            embeds (torch.Tensor) [bsz=1 x seq_len x embedding_dim]: embeddings from MeMDLM
         """
         with torch.no_grad():
             outputs = self.mdlm_model(input_ids=noised_tokens, attention_mask=attention_mask)
-            embeds = outputs.last_hidden_state.squeeze(0)#[None, :, :]
-        return {
-            "embeddings": embeds,
-            "attention_mask": attention_mask
-        }
+            embeds = outputs.last_hidden_state.squeeze(0)
+        return embeds
+
+
+def collate_fn(batch):
+    embeds = torch.stack([item['embeddings'] for item in batch])
+    masks = torch.stack([item['attention_mask'] for item in batch])
+    labels = torch.stack([item['labels'] for item in batch])
+
+    return {
+        'embeddings': embeds,
+        'attention_mask': masks,
+        'labels': labels
+    }
 
 
 class MembraneDataModule(pl.LightningDataModule):
@@ -78,27 +74,38 @@ class MembraneDataModule(pl.LightningDataModule):
         self.test_dataset = test_dataset
         self.collate_fn = collate_fn
         self.batch_size = config.value.training.batch_size
-        self.noise_scheduler = NoisingScheduler(config)
-        self.tokenizer = AutoTokenizer.from_pretrained(config.value.finetuned_esm_mdlm_automodel_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(config.value.training.pretrained_model)
+        self.noise_scheduler = NoisingScheduler(config, self.tokenizer)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset,
                           batch_size=self.batch_size,
-                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer, noise_scheduler=self.noise_scheduler),
+                          collate_fn=self.collate_fn,
                           num_workers=8,
                           pin_memory=True)
     
-    def train_dataloader(self):
+    def val_dataloader(self):
         return DataLoader(self.val_dataset,
                           batch_size=self.batch_size,
-                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer, noise_scheduler=self.noise_scheduler),
+                          collate_fn=self.collate_fn,
                           num_workers=8,
                           pin_memory=True)
     
-    def train_dataloader(self):
+    def test_dataloader(self):
         return DataLoader(self.test_dataset,
                           batch_size=self.batch_size,
-                          collate_fn=partial(self.collate_fn, tokenizer=self.tokenizer, noise_scheduler=self.noise_scheduler),
+                          collate_fn=self.collate_fn,
                           num_workers=8,
                           pin_memory=True)
     
+
+def get_datasets(config):
+    train_dataset = MembraneDataset(config, config.data.train.membrane_esm_train_path, config.value.training.pretrained_model)
+    val_dataset = MembraneDataset(config, config.data.valid.membrane_esm_valid_path, config.value.training.pretrained_model)
+    test_dataset = MembraneDataset(config, config.data.test.membrane_esm_test_path, config.value.training.pretrained_model)
+    
+    return  {
+        "train": train_dataset,
+        "val": val_dataset,
+        "test": test_dataset
+    }
