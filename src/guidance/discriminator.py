@@ -24,7 +24,7 @@ class ValueTrunk(nn.Module):
         Args:
             embeds (torch.Tensor): Embeddings [batch_size x seq_len x d_model]
         Returns:
-            torch.Tensor: Processed embeddings [batch_size x seq_len x d_model]
+            encodings (torch.Tensor): Processed embeddings [batch_size x seq_len x d_model]
         """
         encodings = self.encoder(embeds, src_key_padding_mask=~mask.squeeze(1).bool())
         encodings = self.layer_norm(encodings)
