@@ -51,7 +51,7 @@ class ValueHead(nn.Module):
         Args:
             embeds (torch.Tensor): Processed embeddings [batch_size x seq_len x d_model]
         Returns:
-            preds (torch.Tensor): Per-residue predictions [batch_size x seq_len x 1]
+            preds (torch.Tensor): Per-residue predictions [batch_size x seq_len]
         """
         preds = self.mlp(embeds) 
         return preds
