@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -24,8 +25,10 @@ class ValueTrunk(nn.Module):
         Args:
             embeds (torch.Tensor): Embeddings [batch_size x seq_len x d_model]
         Returns:
-            encodings (torch.Tensor): Processed embeddings [batch_size x seq_len x d_model]
+            preds (torch.Tensor): Processed embeddings [batch_size x seq_len x d_model]
         """
+        mask = ~mask.squeeze(1).bool()
+        print(f"mask: {mask}")
         encodings = self.encoder(embeds, src_key_padding_mask=~mask.squeeze(1).bool())
         encodings = self.layer_norm(encodings)
         encodings = self.dropout(encodings)
@@ -68,4 +71,9 @@ class ValueModule(nn.Module):
         """Combine prediction trunk and head into one module."""
         encodings = self.trunk(embeds, attention_mask)
         preds = self.head(encodings).squeeze(-1)
-        return preds
+        
+        temp_preds = preds.clone()
+        temp_preds[torch.isnan(temp_preds)] = 0 # just for testing purposes
+
+        print(f"preds: {temp_preds}")
+        return temp_preds

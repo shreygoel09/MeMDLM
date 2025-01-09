@@ -16,7 +16,7 @@ from utils import NoisingScheduler
 class MembraneDataset(Dataset):
     def __init__(self, config, data_path, mdlm_model_path):
         self.config = config
-        self.data = pd.read_csv(data_path)[:5]
+        self.data = pd.read_csv(data_path)[:12]
         self.mdlm_model = AutoModel.from_pretrained(mdlm_model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(mdlm_model_path)
         self.noise = NoisingScheduler(self.config, self.tokenizer)
@@ -27,7 +27,13 @@ class MembraneDataset(Dataset):
     def __getitem__(self, idx):
         sequence = self.data.iloc[idx]["Sequence"]
 
-        tokens = self.tokenizer(sequence.upper(), return_tensors='pt', padding='max_length', truncation=True, max_length=1024)
+        tokens = self.tokenizer(
+            sequence.upper(),
+            return_tensors='pt',
+            padding='max_length',
+            truncation=True,
+            max_length=self.config.value.batching.max_seq_len,
+        )
         input_ids, attention_masks = tokens['input_ids'], tokens['attention_mask']
 
         # use MDLM noising scheduler and embeddings for classifier training
@@ -35,13 +41,12 @@ class MembraneDataset(Dataset):
         embeddings = self._get_embeddings(noised_tokens, attention_masks)
 
         # create and manually pad per-residue labels
-        labels = torch.tensor([1 if residue.islower() else 0 for residue in sequence], dtype=torch.float)
-        padded_labels = torch.cat([labels, torch.full(size=(input_ids.shape[1] - len(labels),), fill_value=-1)])
+        labels = self._get_labels(sequence)
 
         return {
             "embeddings": embeddings,
             "attention_mask": attention_masks,
-            "labels": padded_labels
+            "labels": labels
         }
 
     def _get_embeddings(self, noised_tokens, attention_mask):
@@ -52,6 +57,20 @@ class MembraneDataset(Dataset):
             outputs = self.mdlm_model(input_ids=noised_tokens, attention_mask=attention_mask)
             embeds = outputs.last_hidden_state.squeeze(0)
         return embeds
+
+    def _get_labels(self, sequence):
+        max_len = self.config.value.batching.max_seq_len
+
+        # Create per-residue labels
+        labels = torch.tensor([1 if residue.islower() else 0 for residue in sequence], dtype=torch.float)
+        
+        if len(labels) < max_len: # Padding if sequence shorter than tokenizer truncation length
+            padded_labels = torch.cat([labels, torch.full(size=(max_len - len(labels),),
+                                                          fill_value=self.config.value.batching.label_pad_value)])
+        else: # Truncation otherwise
+            padded_labels = labels[:max_len]
+        return padded_labels
+
 
 
 def collate_fn(batch):
@@ -100,6 +119,7 @@ class MembraneDataModule(pl.LightningDataModule):
     
 
 def get_datasets(config):
+    """Helper method to grab datasets to quickly init data module in main.py"""
     train_dataset = MembraneDataset(config, config.data.train.membrane_esm_train_path, config.value.training.pretrained_model)
     val_dataset = MembraneDataset(config, config.data.valid.membrane_esm_valid_path, config.value.training.pretrained_model)
     test_dataset = MembraneDataset(config, config.data.test.membrane_esm_test_path, config.value.training.pretrained_model)

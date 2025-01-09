@@ -44,7 +44,6 @@ class NoisingScheduler:
             else:
                 restricted_move_indices[i] = move_indices[i]
         xt = torch.where(restricted_move_indices, self.tokenizer.mask_token_id, x)
-
         return xt
 
     def __call__(self, x0, attention_mask):
