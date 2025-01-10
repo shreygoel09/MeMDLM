@@ -168,7 +168,7 @@ def main():
         max_epochs=config.value.training.epochs,
         accelerator="cuda" if torch.cuda.is_available() else "cpu",
         devices=config.value.training.devices,
-        strategy=DDPStrategy(find_unused_parameters=False),
+        strategy=DDPStrategy(find_unused_parameters=True),
         callbacks=[checkpoint_callback, lr_monitor],
         logger=wandb_logger,
         log_every_n_steps=config.value.training.log_n_steps
@@ -179,10 +179,18 @@ def main():
     if config.value.training.mode == "train":
         trainer.fit(model, datamodule=data_module)
     elif config.value.training.mode == "test":
-        ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
-        _print(ckpt_path)
-        model.load_state_dict(torch.load(ckpt_path))
-        trainer.test(model, datamodule=data_module, ckpt_path=ckpt_path)
+        #ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
+        #_print(ckpt_path)
+        #model.load_state_dict(torch.load(ckpt_path))
+
+        temp_path = "/workspace/sg666/MeMDLM/checkpoints/classifier/test/epoch1.ckpt"
+        checkpoint = torch.load(temp_path,
+                                map_location='cuda' if torch.cuda.is_available() else 'cpu',
+                                weights_only=True)
+        print(checkpoint)
+        model.load_state_dict(checkpoint)
+
+        trainer.test(model, datamodule=data_module, ckpt_path=temp_path)
     else:
         raise ValueError(f"{config.value.training.mode} is invalid. Must be 'train' or 'test'")
     

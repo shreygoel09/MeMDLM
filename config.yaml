@@ -117,16 +117,16 @@ value:
     max_seq_len: 1024
   model:
     d_model: 640  # ESM-150M dimension size
-    num_heads: 8
+    num_heads: 2
     dropout: 0.5
-    num_layers: 4
+    num_layers: 2
   training:
     devices: [6,7]
-    mode: test # train / test
+    mode: train # train / test
     pretrained_model: /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16
     lr: 3e-4
-    epochs: 10
-    batch_size: 32
+    epochs: 2
+    batch_size: 2
     dataset_size: 7632
     warmup_ratio: 0.05
     log_n_steps: 2
