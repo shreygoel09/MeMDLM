@@ -1,11 +1,16 @@
 import os
 import gc
+import fsspec
+import rich
+import rich.tree
+import rich.syntax
+from rich import print as rprint
 import torch
 import wandb
 import torch.nn as nn
 import lightning.pytorch as pl
 
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 from torchmetrics.classification import BinaryAUROC, BinaryAccuracy
 from lightning.pytorch.strategies import DDPStrategy
 from lightning.pytorch.loggers import WandbLogger
@@ -18,6 +23,7 @@ from dataloader import MembraneDataset, MembraneDataModule, get_datasets
 config = OmegaConf.load("/workspace/sg666/MeMDLM/configs/config.yaml")
 #wandb.login(key='2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f')
 
+
 class SolubilityClassifier(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
@@ -26,6 +32,8 @@ class SolubilityClassifier(pl.LightningModule):
 
         self.model = ValueModule(config)
         self.loss_fn = nn.BCELoss(reduction='none')
+        self.auroc = BinaryAUROC()
+        self.accuracy = BinaryAccuracy()
 
     def forward(self, batch):
         return self.model(batch['embeddings'], batch['attention_mask'])
@@ -36,7 +44,7 @@ class SolubilityClassifier(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         train_loss, _ = self._compute_loss(batch)
         self.log(
-            name="train_loss",
+            name="train/loss",
             value=train_loss.item(),
             on_step=True,
             on_epoch=False,
@@ -47,14 +55,14 @@ class SolubilityClassifier(pl.LightningModule):
     def on_train_epoch_end(self):
         ckpt_path = f"{self.config.value.training.ckpt_path}epoch{self.current_epoch}.ckpt"
         torch.save(self.state_dict(), ckpt_path)
-        _print(f"epoch {self.current_epoch} at {ckpt_path}")
+        #_print(f"epoch {self.current_epoch} at {ckpt_path}")
 
     def on_validation_epoch_start(self):
         self.model.eval()
 
     def validation_step(self, batch, batch_idx):
         val_loss, _ = self._compute_loss(batch)
-        self.log(name="val_loss",
+        self.log(name="val/loss",
                  value=val_loss.item(),
                  on_step=False,
                  on_epoch=True,
@@ -68,17 +76,32 @@ class SolubilityClassifier(pl.LightningModule):
     @torch.no_grad()
     def test_step(self, batch):
         test_loss, preds = self._compute_loss(batch)
-        self.log(name="test_loss",
-                 value=test_loss.item(),
+        auroc, accuracy = self._get_metrics(batch, preds)
+
+        loss, auroc, accuracy = test_loss.item(), auroc.item(), accuracy.item()
+
+        self.log(name="test/loss",
+                 value=loss,
                  on_step=False,
                  on_epoch=True,
                  logger=True,
                  sync_dist=True)
-        
-        auroc, accuracy = self._get_metrics(batch, preds)
-        _print(f"Test loss: {test_loss}")
-        _print(f"Test AUROC: {auroc}")
-        _print(f"Test accuracy: {accuracy}")
+        self.log(name="test/AUROC",
+                 value=auroc,
+                 on_step=False,
+                 on_epoch=True,
+                 logger=True,
+                 sync_dist=True)
+        self.log(name="test/accuracy",
+                 value=accuracy,
+                 on_step=False,
+                 on_epoch=True,
+                 logger=True,
+                 sync_dist=True)
+    
+        # _print(f"Test loss: {test_loss.item()}")
+        # _print(f"Test AUROC: {auroc.item()}")
+        # _print(f"Test accuracy: {accuracy.item()}")
 
         return test_loss
     
@@ -99,7 +122,7 @@ class SolubilityClassifier(pl.LightningModule):
             "scheduler": lr_scheduler,
             "interval": 'step',
             'frequency': 1,
-            'monitor': 'val_loss',
+            'monitor': 'val/loss',
             'name': 'learning_rate'
         }
         return [optimizer], [scheduler_dict]
@@ -134,9 +157,37 @@ class SolubilityClassifier(pl.LightningModule):
     
     def _get_metrics(self, batch, preds):
         """Helper method to compute metrics"""
-        auroc = BinaryAUROC(preds, batch['labels'])
-        accuracy = BinaryAccuracy(preds, batch['labels'])
+        labels = batch['labels']
+
+        valid_mask = (labels != self.config.value.batching.label_pad_value)
+        labels = labels[valid_mask]
+        preds = preds[valid_mask]
+
+        print(f"labels {labels.shape}")
+        print(f"preds {preds.shape}")
+
+        print(labels)
+        print(preds)
+
+        auroc = self.auroc.forward(preds, labels)
+        accuracy = self.accuracy.forward(preds, labels)
         return auroc, accuracy
+
+    def _load_model(self, ckpt_path):
+        """Helper method to load and process a trained model's state dict from saved checkpoint"""
+        def remove_model_prefix(state_dict):
+            for k, v in state_dict.items():
+                if "model." in k:
+                    k.replace('model.', '')
+            return state_dict  
+
+        checkpoint = torch.load(ckpt_path)
+        state_dict = checkpoint.get("state_dict", checkpoint)
+
+        if any(k.startswith("model.") for k in state_dict.keys()):
+            state_dict = remove_model_prefix(state_dict)
+        
+        return state_dict
 
 
 def main():
@@ -156,7 +207,7 @@ def main():
     # lightning checkpoints
     lr_monitor = LearningRateMonitor(logging_interval="step")
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
+        monitor="val/loss",
         save_top_k=1,
         mode="min",
         dirpath=config.value.training.ckpt_path,
@@ -167,7 +218,7 @@ def main():
     trainer = pl.Trainer(
         max_epochs=config.value.training.epochs,
         accelerator="cuda" if torch.cuda.is_available() else "cpu",
-        devices=config.value.training.devices,
+        devices=config.value.training.devices if config.value.training.mode=='train' else [0],
         strategy=DDPStrategy(find_unused_parameters=True),
         callbacks=[checkpoint_callback, lr_monitor],
         logger=wandb_logger,
@@ -178,19 +229,13 @@ def main():
     model = SolubilityClassifier(config)
     if config.value.training.mode == "train":
         trainer.fit(model, datamodule=data_module)
+
     elif config.value.training.mode == "test":
-        #ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
-        #_print(ckpt_path)
-        #model.load_state_dict(torch.load(ckpt_path))
+        ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
+        state_dict = model._load_model(ckpt_path)
+        model.load_state_dict(state_dict)
+        trainer.test(model, datamodule=data_module, ckpt_path=ckpt_path)
 
-        temp_path = "/workspace/sg666/MeMDLM/checkpoints/classifier/test/epoch1.ckpt"
-        checkpoint = torch.load(temp_path,
-                                map_location='cuda' if torch.cuda.is_available() else 'cpu',
-                                weights_only=True)
-        print(checkpoint)
-        model.load_state_dict(checkpoint)
-
-        trainer.test(model, datamodule=data_module, ckpt_path=temp_path)
     else:
         raise ValueError(f"{config.value.training.mode} is invalid. Must be 'train' or 'test'")
     

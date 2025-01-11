@@ -1,0 +1,63 @@
+nohup: ignoring input
+Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+wandb: Currently logged in as: shrey-goel (programmablebio). Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.19.2 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.13.5
+wandb: Run data is saved locally in /workspace/sg666/MeMDLM/src/guidance/wandb/run-20250110_235538-mjacdyoz
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run epochs10_lr3e-4_bsz16_heads4_drpt0.5_layers8
+wandb: ⭐️ View project at https://wandb.ai/programmablebio/MeMDLM_Guidance
+wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/mjacdyoz
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/2
+Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+wandb: Currently logged in as: shrey-goel (programmablebio). Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.19.2 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.13.5
+wandb: Run data is saved locally in /workspace/sg666/MeMDLM/src/guidance/wandb/run-20250110_235547-s7ki1hu5
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run epochs10_lr3e-4_bsz16_heads4_drpt0.5_layers8
+wandb: ⭐️ View project at https://wandb.ai/programmablebio/MeMDLM_Guidance
+wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/s7ki1hu5
+Initializing distributed: GLOBAL_RANK: 1, MEMBER: 2/2
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 2 processes
+----------------------------------------------------------------------------------------------------
+
+/usr/local/lib/python3.10/dist-packages/lightning/pytorch/loggers/wandb.py:391: There is a wandb run already in progress and newly created instances of `WandbLogger` will reuse this run. If this is not desired, call `wandb.finish()` before instantiating `WandbLogger`.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1]
+LOCAL_RANK: 1 - CUDA_VISIBLE_DEVICES: [0,1]
+
+  | Name     | Type           | Params
+--------------------------------------------
+0 | model    | ValueModule    | 34.3 M
+1 | loss_fn  | BCELoss        | 0     
+2 | auroc    | BinaryAUROC    | 0     
+3 | accuracy | BinaryAccuracy | 0     
+--------------------------------------------
+34.3 M    Trainable params
+0         Non-trainable params
+34.3 M    Total params
+137.392   Total estimated model params size (MB)
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/transformer.py:409: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. (Triggered internally at ../aten/src/ATen/NestedTensorImpl.cpp:178.)
+  output = torch._nested_tensor_from_mask(output, src_key_padding_mask.logical_not(), mask_check=False)
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/transformer.py:409: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. (Triggered internally at ../aten/src/ATen/NestedTensorImpl.cpp:178.)
+  output = torch._nested_tensor_from_mask(output, src_key_padding_mask.logical_not(), mask_check=False)
+[rank0]:[W110 23:59:37.015829183 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
+[rank1]:[W110 23:59:37.016167354 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())

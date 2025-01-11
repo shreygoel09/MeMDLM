@@ -95,11 +95,11 @@ trainer:
   val_check_interval: 10 #954
 
 wandb:
-  project: MeMDLM_guidance_testing #MeMDLM_pretrain_400k_650M
+  project: MeMDLM_Guidance #MeMDLM_pretrain_400k_650M
   notes: null
   group: programmablebio
   job_type: null
-  name: test #epochs10_lr3e-4_bsz16_32-true_all-params_gradclip1_beta-one0.9_beta-two0.999_mask0.7
+  name: epochs10_lr3e-4_bsz16_heads4_drpt0.5_layers8 #MeMDLM: epochs10_lr3e-4_bsz16_32-true_all-params_gradclip1_beta-one0.9_beta-two0.999_mask0.7
   id: ${.name}_${seed}
 
 checkpointing:
@@ -117,16 +117,16 @@ value:
     max_seq_len: 1024
   model:
     d_model: 640  # ESM-150M dimension size
-    num_heads: 2
+    num_heads: 4
     dropout: 0.5
-    num_layers: 2
+    num_layers: 8
   training:
-    devices: [6,7]
+    devices: [0,1]
     mode: train # train / test
     pretrained_model: /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16
     lr: 3e-4
-    epochs: 2
-    batch_size: 2
+    epochs: 10
+    batch_size: 16
     dataset_size: 7632
     warmup_ratio: 0.05
     log_n_steps: 2

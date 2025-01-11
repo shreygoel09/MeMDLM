@@ -11,7 +11,7 @@ from utils import NoisingScheduler
 class MembraneDataset(Dataset):
     def __init__(self, config, data_path, mdlm_model_path):
         self.config = config
-        self.data = pd.read_csv(data_path)[:12]
+        self.data = pd.read_csv(data_path)
         self.mdlm_model = AutoModel.from_pretrained(mdlm_model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(mdlm_model_path)
         self.noise = NoisingScheduler(self.config, self.tokenizer)

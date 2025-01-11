@@ -37,7 +37,7 @@ class ValueModule(nn.Module):
         encodings = self.layer_norm(encodings)
         encodings = self.dropout(encodings)
 
-        preds = self.mlp(embeds).squeeze(-1)
+        preds = self.mlp(encodings).squeeze(-1)
 
         return preds
 
