@@ -136,6 +136,10 @@ value:
     temperature: 0.1
     epsilon: 1e-7
     topk: 5
+    residue_thresh: 0.5
+    sequence_thresh: 0.75
+    step_size =  # neta
+    reg_strength = # lambda
 
 
 
