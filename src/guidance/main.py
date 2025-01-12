@@ -53,9 +53,11 @@ class SolubilityClassifier(pl.LightningModule):
         return train_loss
 
     def on_train_epoch_end(self):
-        ckpt_path = f"{self.config.value.training.ckpt_path}epoch{self.current_epoch}.ckpt"
-        torch.save(self.state_dict(), ckpt_path)
-        #_print(f"epoch {self.current_epoch} at {ckpt_path}")
+        curr_epoch = self.current_epoch + 1
+        if curr_epoch % 10 == 0 or curr_epoch == 1: # save every 10 epochs
+            ckpt_path = f"{self.config.value.training.ckpt_path}epoch{curr_epoch}.ckpt"
+            torch.save(self.state_dict(), ckpt_path)
+            _print(f"epoch {self.current_epoch} at {ckpt_path}")
 
     def on_validation_epoch_start(self):
         self.model.eval()
@@ -116,7 +118,7 @@ class SolubilityClassifier(pl.LightningModule):
         lr_scheduler = CosineWarmup(
             optimizer,
             warmup_steps=path.dataset_size * path.warmup_ratio,
-            total_steps=(path.dataset_size // path.batch_size) * path.epochs
+            total_steps=path.max_steps,
         )
         scheduler_dict = {
             "scheduler": lr_scheduler,
@@ -149,7 +151,7 @@ class SolubilityClassifier(pl.LightningModule):
             _print(f"created ckpt dir at {ckpt_path}")
         assert os.path.isdir(self.config.value.training.ckpt_path), "invalid ckpt path"
 
-        assert self.config.value.training.mode in ["train", "test"], f"invalid mode"
+        assert self.config.value.training.mode in ["train", "test", "resume_from_checkpoint"], f"invalid mode"
         assert os.path.isdir(self.config.value.training.pretrained_model), "invalid MeMDLM model path"
         assert (self.config.value.model.d_model % self.config.value.model.num_heads)==0, "d_model % num_heads != 0"
         assert (self.config.value.model.dropout >= 0 and \
@@ -173,7 +175,7 @@ class SolubilityClassifier(pl.LightningModule):
         accuracy = self.accuracy.forward(preds, labels)
         return auroc, accuracy
 
-    def _load_model(self, ckpt_path):
+    def _get_state_dict(self, ckpt_path):
         """Helper method to load and process a trained model's state dict from saved checkpoint"""
         def remove_model_prefix(state_dict):
             for k, v in state_dict.items():
@@ -181,7 +183,7 @@ class SolubilityClassifier(pl.LightningModule):
                     k.replace('model.', '')
             return state_dict  
 
-        checkpoint = torch.load(ckpt_path)
+        checkpoint = torch.load(ckpt_path, map_location='cuda' if torch.cuda.is_available() else 'cpu')
         state_dict = checkpoint.get("state_dict", checkpoint)
 
         if any(k.startswith("model.") for k in state_dict.keys()):
@@ -216,7 +218,7 @@ def main():
 
     # lightning trainer
     trainer = pl.Trainer(
-        max_epochs=config.value.training.epochs,
+        max_epochs=config.value.training.max_steps,
         accelerator="cuda" if torch.cuda.is_available() else "cpu",
         devices=config.value.training.devices if config.value.training.mode=='train' else [0],
         strategy=DDPStrategy(find_unused_parameters=True),
@@ -232,9 +234,15 @@ def main():
 
     elif config.value.training.mode == "test":
         ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
-        state_dict = model._load_model(ckpt_path)
+        state_dict = model._get_state_dict(ckpt_path)
         model.load_state_dict(state_dict)
         trainer.test(model, datamodule=data_module, ckpt_path=ckpt_path)
+
+    elif config.value.training.mode == "resume_from_checkpoint":
+        ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
+        state_dict = model._get_state_dict(ckpt_path)
+        model.load_state_dict(state_dict)
+        trainer.fit(model, datamodule=data_module, ckpt_path=ckpt_path)
 
     else:
         raise ValueError(f"{config.value.training.mode} is invalid. Must be 'train' or 'test'")
