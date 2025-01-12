@@ -96,6 +96,7 @@ class SolubilityGuider:
         return probabilities, topk_edit_probs
     
     def mask_sequence(self, input_ids, solubility_probs, topk_edit_probs):
+        """Mask out low-vaue residues"""
         return torch.where(
             solubility_probs > topk_edit_probs,
             input_ids,
@@ -103,6 +104,7 @@ class SolubilityGuider:
         )
 
     def compute_frac_soluble(self, input_ids, solubility_preds):
+        """Helper method to compute density of soluble residues in a sequence"""
         soluble_mask = torch.gt(solubility_preds, self.residue_thresh)
         num_soluble = torch.count_nonzero(solubility_preds, soluble_mask).sum().item()
         frac_soluble = (num_soluble / len(input_ids))
@@ -158,7 +160,7 @@ class SolubilityGuider:
         return updated_logits
     
     def generate_and_optimize(self, input_ids):
-        # Generate an initial protein sequence
+        """Combine the diffusion sampling and logits update"""
         with torch.no_grad():
             logits = self.diffusion._sample(x_input=input_ids)
         logits = self.update_logits(logits)
@@ -167,13 +169,11 @@ class SolubilityGuider:
     
     def optimized_sampling(self, sequence):
         """
-        while (# soluble residues < 0.80):
-            compute saliency and mask out bad residues
-            tokenize sequence
-            update logits
-            re-generate sequence
-            classify residues
-            
+        Main entry point to optimize a generated sequence.
+        Args:
+            - sequence (str): unconditionally generated protein sequence
+        Returns:
+            - optimized_sequence (str): optimized version of original sequence
         """
         # Tokenize sequence
         input_ids, attention_masks = self.tokenize_sequence(sequence)
