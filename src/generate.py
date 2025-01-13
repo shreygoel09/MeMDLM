@@ -1,14 +1,15 @@
-import torch
-import torch.nn.functional as F
-import math
-import random
 import sys
-import pandas as pd
-from generate_utils import mask_for_de_novo, calculate_cosine_sim, calculate_hamming_dist
-from MeMDLM.src.models.diffusion import Diffusion
 import hydra
+import random
+import torch
+import pandas as pd
+
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModel, pipeline
+from transformers import AutoTokenizer
+
+from generate_utils import mask_for_de_novo
+from MeMDLM.src.diffusion.diffusion import Diffusion
+from MeMDLM.src.guidance.guidance import SolubilityGuider
 
 
 @torch.no_grad()
@@ -17,17 +18,18 @@ def generate_sequence(sequence_length: int, tokenizer, mdlm: Diffusion):
     masked_sequence = mask_for_de_novo(sequence_length)
     inputs = tokenizer(masked_sequence, return_tensors="pt").to(mdlm.device)
     logits = mdlm._sample(x_input=inputs) # using sample, change config.sampling.steps to determine robustness
-    generated_sequence = tokenizer.decode(logits.squeeze())
+    generated_sequence = tokenizer.decode(logits.squeeze())[5:-5].replace(" ", "") # Remove bos/eos tokens & spaces between residues
 
     return generated_sequence
 
 
 @hydra.main(version_base=None, config_path='configs', config_name='config')
-def main(config):
+def main(config, optimize: bool=True):
     path = "/workspace/sg666/MDpLM"
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t30_150M_UR50D")
     mdlm_model = Diffusion.load_from_checkpoint(config.eval.checkpoint_path, config=config, tokenizer=tokenizer)
+    guidance = SolubilityGuider(config)
     
     mdlm_model.eval()
     device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
@@ -41,7 +43,9 @@ def main(config):
     generation_results = []
     for seq_length in tqdm(sequence_lengths, desc=f"Generating sequences: "):
         generated_sequence = generate_sequence(seq_length, tokenizer, mdlm_model)
-        generated_sequence = generated_sequence[5:-5].replace(" ", "") # Remove bos/eos tokens & spaces between residues
+
+        if optimize:
+            generated_sequence = guidance.optimized_sampling(generated_sequence)
         
         perplexity = mdlm_model.compute_masked_perplexity([generated_sequence], masked_sequence)
         perplexity = round(perplexity, 4)
