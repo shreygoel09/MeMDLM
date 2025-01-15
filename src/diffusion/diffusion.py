@@ -11,19 +11,20 @@ import numpy as np
 import torch.nn as nn
 import torch
 # import dit
-import ema
 import time
 import gc
-import pl_data_loader as dataloader
-import torch.nn.functional as F
 import torchmetrics
 import transformers
+
 from torch import Tensor
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import _LRScheduler
 from transformers import AutoModelForMaskedLM, AutoModel, AutoTokenizer
 
-import utils
-import noise_schedule
+from MeMDLM.src.diffusion import pl_data_loader
+from MeMDLM.src.diffusion import ema
+from MeMDLM.src.diffusion import utils
+from MeMDLM.src.diffusion import noise_schedule
 
 LOG2 = math.log(2)
 
@@ -175,26 +176,6 @@ class WrapMembraneESM(nn.Module):
       self.tokenizer = AutoTokenizer.from_pretrained(load_dir)
 
 
-class CrossAttention(nn.Module):
-  def __init__(self, embed_dim, n_heads):
-      super().__init__()
-      self.attn = nn.MultiHeadAttention(embed_dim, n_heads)
-
-  def forward(self, xt, c):
-      """
-      Implements a cross attention mechanism for guided
-      diffusion of soluble-only residues.
-
-      Args:
-        - xt (torch.Tensor): noised inputs of shape (bsz x seq_len x vocab_size)
-        - c (torch.Tensor): conditioning vector of shape (bsz x seq_len x 1)
-      Return:
-        - xt_c (torch.Tensor):  shape ()
-      """
-      c = c.unsqueeze()
-
-      xt_c = self.attn(query=xt, key=c, value=c, need_weights=False)
-      return xt_c
 
 class Diffusion(L.LightningModule):
   def __init__(self, config, tokenizer):
@@ -205,7 +186,6 @@ class Diffusion(L.LightningModule):
     self.tokenizer = tokenizer
     self.vocab_size = self.tokenizer.vocab_size
     self.sampler = self.config.sampling.predictor
-    self.solubility_attention = CrossAttention()
 
     self.gen_ppl_eval_model_name_or_path = self.config.eval.gen_ppl_eval_model_name_or_path
     self.antithetic_sampling = self.config.training.antithetic_sampling
@@ -479,6 +459,12 @@ class Diffusion(L.LightningModule):
       sigma = torch.zeros_like(sigma)
     assert sigma.ndim == 1, sigma.shape
     return sigma
+
+  def get_logits(self, x, attention_mask):
+    logits = self.backbone(x, attention_mask)
+    if self.parameterization == "subs":
+      return self._subs_parameterization(logits=logits, xt=x)
+    return logits
 
   def forward(self, x, sigma, attention_mask, print_logits=False):
     """Returns log score."""

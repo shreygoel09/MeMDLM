@@ -16,21 +16,22 @@ from lightning.pytorch.strategies import DDPStrategy
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 
-from utils import NoisingScheduler, CosineWarmup, _print
-from discriminator import ValueModule
-from dataloader import MembraneDataset, MembraneDataModule, get_datasets
+from MeMDLM.src.guidance.utils import CosineWarmup, _print
+from MeMDLM.src.guidance.discriminator import ValueModule
+from MeMDLM.src.guidance.dataloader import MembraneDataModule, get_datasets
 
-config = OmegaConf.load("/workspace/sg666/MeMDLM/configs/config.yaml")
+
+config = OmegaConf.load("/workspace/sg666/MeMDLM/MeMDLM/configs/config.yaml")
 #wandb.login(key='2b76a2fa2c1cdfddc5f443602c17b011fefb0a8f')
 
 
 class SolubilityClassifier(pl.LightningModule):
-    def __init__(self, config):
+    def __init__(self, config, sampling: bool):
         super().__init__()
         self.config = config
         self._validate_config()
 
-        self.model = ValueModule(config)
+        self.model = ValueModule(config, sampling)
         self.loss_fn = nn.BCELoss(reduction='none')
         self.auroc = BinaryAUROC()
         self.accuracy = BinaryAccuracy()
@@ -134,7 +135,7 @@ class SolubilityClassifier(pl.LightningModule):
         """Helper method to handle loss calculation"""
         embeds, attn_masks, labels = batch['embeddings'], batch['attention_mask'], batch['labels']
         
-        preds = self.model(embeds, attn_masks)
+        preds = self.forward(batch)
         loss = self.loss_fn(preds, labels)
 
         # only calculate loss over non-pad tokens
@@ -218,7 +219,7 @@ def main():
 
     # lightning trainer
     trainer = pl.Trainer(
-        max_epochs=config.value.training.max_steps,
+        max_steps=config.value.training.max_steps,
         accelerator="cuda" if torch.cuda.is_available() else "cpu",
         devices=config.value.training.devices if config.value.training.mode=='train' else [0],
         strategy=DDPStrategy(find_unused_parameters=True),

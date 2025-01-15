@@ -16,7 +16,7 @@ import tokenizers
 import torch
 import transformers
 
-import utils
+from MeMDLM.src.diffusion import utils
 
 LOGGER = utils.get_logger(__name__)
 

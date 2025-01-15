@@ -18,16 +18,16 @@ seed: 42
 
 data:
   train:
-    vanilla_esm_train_path: /workspace/sg666/MeMDLM/data/uniref50/train.csv
-    membrane_esm_train_path: /workspace/sg666/MeMDLM/data/membrane/train.csv
+    vanilla_esm_train_path: /workspace/sg666/MeMDLM/MeMDLM/data/uniref50/train.csv
+    membrane_esm_train_path: /workspace/sg666/MeMDLM/MeMDLM/data/membrane/train.csv
     wrap: null
   test:
-    vanilla_esm_test_path: /workspace/sg666/MeMDLM/data/uniref50/test.csv
-    membrane_esm_test_path: /workspace/sg666/MeMDLM/data/membrane/test.csv
+    vanilla_esm_test_path: /workspace/sg666/MeMDLM/MeMDLM/data/uniref50/test.csv
+    membrane_esm_test_path: /workspace/sg666/MeMDLM/MeMDLM/data/membrane/test.csv
     wrap: null
   valid:
-    vanilla_esm_valid_path: /workspace/sg666/MeMDLM/data/uniref50/val.csv
-    membrane_esm_valid_path: /workspace/sg666/MeMDLM/data/membrane/val.csv
+    vanilla_esm_valid_path: /workspace/sg666/MeMDLM/MeMDLM/data/uniref50/val.csv
+    membrane_esm_valid_path: /workspace/sg666/MeMDLM/MeMDLM/data/membrane/val.csv
     wrap: null
   batching: padding # padding / wrapping / focus_mask
 
@@ -57,19 +57,19 @@ training:
   importance_sampling: False
   sampling_eps: 1e-3
   change_of_variables: False
-  mlm_model_path: /workspace/sg666/MeMDLM/benchmarks/MLM/model_ckpts_650M/best_model_epoch
-  esm_model_path: facebook/esm2_t33_650M_UR50D
+  mlm_model_path: /workspace/sg666/MeMDLM/MeMDLM/benchmarks/MLM/model_ckpts_650M/best_model_epoch
+  esm_model_path: facebook/esm2_t30_150M_UR50D
   max_mask_rate: 0.50
 
 eval:
-  checkpoint_path: /workspace/sg666/MeMDLM/checkpoints/!old/membrane_mdlm/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/checkpoints/best.ckpt # Used to evaluate a checkpoint after training.
+  checkpoint_path: /workspace/sg666/MDpLM/checkpoints/150M/membrane_mdlm/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/checkpoints/best.ckpt # Used to evaluate a checkpoint after training.
   disable_ema: False
   compute_generative_perplexity: False
   perplexity_batch_size: 8
   compute_perplexity_on_sanity: False
   gen_ppl_eval_model_name_or_path: gpt2-large  # gpt2-large, meta-llama/Llama-2-7b-hf
   generate_samples: True
-  generation_model: /workspace/sg666/MeMDLM/checkpoints/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/
+  generation_model: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/
 
 optim:
   weight_decay: 0.075
@@ -99,17 +99,17 @@ wandb:
   notes: null
   group: programmablebio
   job_type: null
-  name: steps50k_lr3e-4_bsz16_heads4_drpt0.5_layers8_mask0.50 #MeMDLM: epochs10_lr3e-4_bsz16_32-true_all-params_gradclip1_beta-one0.9_beta-two0.999_mask0.7
+  name: steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.50 #MeMDLM: epochs10_lr3e-4_bsz16_32-true_all-params_gradclip1_beta-one0.9_beta-two0.999_mask0.7
   id: ${.name}_${seed}
 
 checkpointing:
   # Use custom `save_dir` if, e.g., saving to S3 bucket, otherwise leave this parameter as is
-  save_dir: /workspace/sg666/MeMDLM/checkpoints/
+  save_dir: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/
   # Note: `checkpoints` path should correspond to `checkpoint_every_n_steps.dirpath`
   resume_from_ckpt: false
   resume_ckpt_path: ${.save_dir}/checkpoints/last.ckpt #/checkpoints/last.ckpt
-  pretrained_esm_mdlm_automodel_path: /workspace/sg666/MeMDLM/checkpoints/pretrained_automodel/
-  finetuned_esm_mdlm_automodel_path: /workspace/sg666/MeMDLM/checkpoints/membrane_mdlm/
+  pretrained_esm_mdlm_automodel_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/pretrained_automodel/
+  finetuned_esm_mdlm_automodel_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/membrane_mdlm/
 
 value:
   batching:
@@ -117,9 +117,9 @@ value:
     max_seq_len: 1024
   model:
     d_model: 640  # ESM-2-150M dimension size
-    num_heads: 4
+    num_heads: 2
     dropout: 0.5
-    num_layers: 8
+    num_layers: 4
   training:
     devices: [0,1]
     mode: train # train / test / resume_from_checkpoint
@@ -130,22 +130,22 @@ value:
     dataset_size: 7632
     warmup_ratio: 0.05
     log_n_steps: 2
-    ckpt_path: /workspace/sg666/MeMDLM/checkpoints/classifier/${wandb.name}/
+    ckpt_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/${wandb.name}/
     model_ckpting_name: 
   guidance:
     temperature: 0.1
     epsilon: 1e-7
     topk: 5
-    residue_thresh: 0.5
+    residue_thresh: 0.70
     sequence_thresh: 0.75
-    step_size =  # neta
-    reg_strength = # lambda
+    step_size: 0.1 # neta
+    reg_strength: 0.5 # lambda
 
 
 
 hydra:
   run:
-    dir: /workspace/sg666/MeMDLM/outputs/${data.train}/${now:%Y.%m.%d}/${now:%H%M%S}
+    dir: /workspace/sg666/MeMDLM/MeMDLM/outputs/${data.train}/${now:%Y.%m.%d}/${now:%H%M%S}
   job:
     chdir: true
 

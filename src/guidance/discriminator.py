@@ -1,8 +1,10 @@
 import torch.nn as nn
 
 class ValueModule(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, sampling=None):
         super().__init__()
+
+        self.sampling = sampling
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=config.value.model.d_model,
@@ -33,7 +35,13 @@ class ValueModule(nn.Module):
         Returns:
             preds (torch.Tensor): per-residue solubility predictions [batch_size x seq_len]
         """
-        encodings = self.encoder(embeds, src_key_padding_mask=~mask.squeeze(1).bool())
+        # During optimization, we only consider 1 sequence at a time
+        if self.sampling:
+            processed_mask = ~mask.squeeze(0).bool()
+        else:
+            processed_mask = ~mask.squeeze(1).bool()
+
+        encodings = self.encoder(embeds, src_key_padding_mask=processed_mask)
         encodings = self.layer_norm(encodings)
         encodings = self.dropout(encodings)
 

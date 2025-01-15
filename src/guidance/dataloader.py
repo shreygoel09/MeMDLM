@@ -5,7 +5,7 @@ import lightning.pytorch as pl
 from transformers import AutoModel, AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
 
-from utils import NoisingScheduler
+from MeMDLM.src.guidance.utils import NoisingScheduler
 
 
 class MembraneDataset(Dataset):
