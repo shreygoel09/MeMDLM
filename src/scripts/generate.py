@@ -31,7 +31,7 @@ def main(config, optimize: bool=True):
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t30_150M_UR50D")
 
-    device = torch.device(f"cuda:{1}" if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f"cuda:{0}" if torch.cuda.is_available() else 'cpu')
 
     mdlm = Diffusion.load_from_checkpoint(
         config.eval.checkpoint_path,
@@ -45,7 +45,7 @@ def main(config, optimize: bool=True):
 
     # Get 100 random sequence lengths to generate
     #sequence_lengths = [random.randint(50, 500) for _ in range(700)] 
-    sequence_lengths = [500]
+    sequence_lengths = [250]
 
     generation_results = []
     for seq_length in tqdm(sequence_lengths, desc=f"Generating sequences: "):

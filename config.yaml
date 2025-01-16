@@ -133,11 +133,11 @@ value:
     ckpt_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/${wandb.name}/
     model_ckpting_name: 
   guidance:
-    temperature: 0.1
-    epsilon: 1e-7
+    temperature: 0.9
+    epsilon: 1e-4
     topk: 5
-    residue_thresh: 0.70
-    sequence_thresh: 0.70 #0.70
+    residue_thresh: 0.50
+    sequence_thresh: 0.70
     step_size: 0.1 # neta
     reg_strength: 0.5 # lambda
 

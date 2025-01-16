@@ -151,7 +151,7 @@ class SolubilityGuider:
 
         neta = self.config.value.guidance.step_size
         lamb = self.config.value.guidance.reg_strength
-        eps = torch.normal(mean=0.0, std=1.0, size=(1,)).item() # eps ~ N(0, 1)
+        eps = torch.normal(mean=0.0, std=1.0, size=(1,)).clamp(-3.0, 3.0).item() # eps ~ N(0, 1)
 
         # ~p_theta(w_hat | h_t)
         # p_ht_prime = torch.pow(p_ht, solubility_preds.unsqueeze(-1).expand_as(p_ht)) # Scale logits by solubility predictions
@@ -214,6 +214,10 @@ class SolubilityGuider:
             saliency_map = self.compute_saliency(squeezed_ids, squeezed_masks)
             edit_positions = self.determine_edit_positions(saliency_map, solubility_preds)
 
+            print(f'saliency map: {saliency_map}')
+            print(f'init preds: {solubility_preds}')
+            print(f'edit pos: {edit_positions}')
+
             # Mask low-value residues and get updated logits
             remasked_seq_ids = self.mask_sequence(squeezed_ids, edit_positions)
             updated_logits = self.diffusion.get_logits(
@@ -229,7 +233,6 @@ class SolubilityGuider:
                 first_iter=(iter == 1)
             )
 
-            print(f'updated logits: {updated_logits}')
             optimized_sequence = self.tokenizer.decode(updated_logits.argmax(dim=-1))[5:-5].replace(" ", "")
 
             # Recompute solubility density of optimized sequence
@@ -241,5 +244,8 @@ class SolubilityGuider:
             frac_soluble = self.compute_frac_soluble(squeezed_ids, solubility_preds)
 
             iter += 1
+
+            print(f'optim seq: {optimized_sequence}')
+            print(f'optim sol: {frac_soluble}')
 
         return optimized_sequence, frac_soluble

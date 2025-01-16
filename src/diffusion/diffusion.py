@@ -867,6 +867,9 @@ class Diffusion(L.LightningModule):
         input_ids = self.tokenizer(masked, return_tensors="pt").input_ids.to(self.device)
         gt_ids = self.tokenizer(sequence.upper(), return_tensors="pt").input_ids.to(self.device)
 
+        print(f'comp gen ppl input ids: {input_ids.shape}')
+        print(f'comp gen ppl gt ids: {gt_ids.shape}')
+
         # Forward pass through the ESM model
         attention_mask = torch.ones_like(input_ids)
         if self.config.mode in ['train', 'ppl_eval']:
@@ -893,7 +896,7 @@ class Diffusion(L.LightningModule):
     self.gen_ppl_metric.update(pseudo_perplexity)
     
     return pseudo_perplexity.item()
-  
+
   @torch.no_grad()
   def compute_generative_perplexity(
     self,
