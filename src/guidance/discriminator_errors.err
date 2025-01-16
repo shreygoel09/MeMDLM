@@ -6,14 +6,14 @@ You should probably TRAIN this model on a down-stream task to be able to use it 
 Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
 You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
 wandb: Currently logged in as: shrey-goel (programmablebio). Use `wandb login --relogin` to force relogin
-wandb: wandb version 0.19.2 is available!  To upgrade, please run:
+wandb: wandb version 0.19.3 is available!  To upgrade, please run:
 wandb:  $ pip install wandb --upgrade
 wandb: Tracking run with wandb version 0.13.5
-wandb: Run data is saved locally in /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250113_211132-74ig2qoi
+wandb: Run data is saved locally in /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250116_043320-2h0213cx
 wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.75
+wandb: Syncing run steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50
 wandb: ⭐️ View project at https://wandb.ai/programmablebio/MeMDLM_Guidance
-wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/74ig2qoi
+wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/2h0213cx
 GPU available: True (cuda), used: True
 TPU available: False, using: 0 TPU cores
 IPU available: False, using: 0 IPUs
@@ -26,14 +26,14 @@ You should probably TRAIN this model on a down-stream task to be able to use it 
 Some weights of EsmModel were not initialized from the model checkpoint at /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16 and are newly initialized: ['esm.pooler.dense.bias', 'esm.pooler.dense.weight']
 You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
 wandb: Currently logged in as: shrey-goel (programmablebio). Use `wandb login --relogin` to force relogin
-wandb: wandb version 0.19.2 is available!  To upgrade, please run:
+wandb: wandb version 0.19.3 is available!  To upgrade, please run:
 wandb:  $ pip install wandb --upgrade
 wandb: Tracking run with wandb version 0.13.5
-wandb: Run data is saved locally in /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250113_211140-hebec3u3
+wandb: Run data is saved locally in /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250116_043327-lgf7wpko
 wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.75
+wandb: Syncing run steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50
 wandb: ⭐️ View project at https://wandb.ai/programmablebio/MeMDLM_Guidance
-wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/hebec3u3
+wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/lgf7wpko
 Initializing distributed: GLOBAL_RANK: 1, MEMBER: 2/2
 ----------------------------------------------------------------------------------------------------
 distributed_backend=nccl
@@ -59,14 +59,6 @@ LOCAL_RANK: 1 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
   output = torch._nested_tensor_from_mask(output, src_key_padding_mask.logical_not(), mask_check=False)
 /usr/local/lib/python3.10/dist-packages/torch/nn/modules/transformer.py:409: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. (Triggered internally at ../aten/src/ATen/NestedTensorImpl.cpp:178.)
   output = torch._nested_tensor_from_mask(output, src_key_padding_mask.logical_not(), mask_check=False)
-[rank1]:[W113 21:16:42.303031159 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
-[rank0]:[W113 21:16:42.303182574 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
-wandb: ERROR Failed to sample metric: Not Supported
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)
+[rank0]:[W116 04:37:26.124065125 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
+[rank1]:[W116 04:37:26.124304152 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
 wandb: Network error (ReadTimeout), entering retry loop.
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)
-wandb: ERROR Error while calling W&B API: context deadline exceeded (<Response [500]>)

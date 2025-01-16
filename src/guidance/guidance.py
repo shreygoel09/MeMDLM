@@ -2,6 +2,7 @@ import os
 import math
 import torch
 import torch.nn.functional as F
+import torch.autograd as GRD
 from transformers import AutoModel, AutoModelForMaskedLM, AutoTokenizer
 
 from MeMDLM.src.guidance.main import SolubilityClassifier
@@ -39,7 +40,7 @@ class SolubilityGuider:
 
     def _decode(self, logits):
         """Helper method to decode a sequence from logits."""
-        return self.tokenizer.decode(logits.squeeze())[5:-5].replace(" ", "")
+        return 
     
     def embed_and_predict_solubility(self, input_ids, attention_masks):
         """Obtain sequence embeddings and per-residue solubility predictions"""
@@ -75,24 +76,22 @@ class SolubilityGuider:
             input_ids (torch.Tensor): squeezed token IDS [seq_len]
         """
         # get sequence embeddings and per-residue predictions
-        embeddings = self.embed_and_predict_solubility(input_ids, attention_masks)['sequence_embeddings']
+        outs = self.embed_and_predict_solubility(input_ids, attention_masks)
+        embeddings = outs['sequence_embeddings']
+        preds = outs['solubility_predictions']
 
         def jacobian_fn(embeddings):
             batch = {"embeddings": embeddings, "attention_mask": attention_masks}
             return self.classifier_model.forward(batch)
 
-        jacobian = torch.autograd.functional.jacobian(
-            func=jacobian_fn, # B x L X 1
-            inputs=embeddings, # B x L x D
-            create_graph=True
-        )
+        jacobian = GRD.functional.jacobian(jacobian_fn, embeddings, create_graph=True)
 
         # Creating a saliency map (Eq.5 in LaMBO-2 paper)
         saliency = jacobian.abs().sum(dim=-1)  # summation across hidden dim. Abs value for directionality only
         saliency = saliency.pow(1.0 / self.temperature)
         saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min())
-        saliency = torch.clamp(saliency, min=self.eps)
-        return saliency.to(self.device).diag()
+        saliency = saliency.clamp(min=self.eps).to(self.device).diag()
+        return saliency
 
         # # Compute gradients of value function wrt hidden states
         # gradients = torch.autograd.grad(
@@ -121,6 +120,7 @@ class SolubilityGuider:
 
         # return probabilities.to(self.device) #, topk_edit_probs
         probabilities = saliency_map / saliency_map.sum()
+        probabilities = probabilities.masked_fill(solubility_preds <= self.residue_thresh, 0.0)
         return probabilities
     
     def mask_sequence(self, input_ids, interpolated_solubility):
@@ -137,7 +137,7 @@ class SolubilityGuider:
         frac_soluble = (num_soluble / solubility_preds.numel())
         return frac_soluble
 
-    def update_logits(self, p_ht_prime, p_ht, first_iter: bool):
+    def update_logits(self, p_ht_prime, p_ht, updated_ids, first_iter: bool):
         """
         Shift logits distribution towards only soluble residues.
         Implementation of SGLD update step (Eq. 4 in LaMBO-2 paper).
@@ -151,7 +151,7 @@ class SolubilityGuider:
 
         neta = self.config.value.guidance.step_size
         lamb = self.config.value.guidance.reg_strength
-        eps = torch.randn_like(p_ht).to(self.device) # eps ~ N(0, 1)
+        eps = torch.normal(mean=0.0, std=1.0, size=(1,)).item() # eps ~ N(0, 1)
 
         # ~p_theta(w_hat | h_t)
         # p_ht_prime = torch.pow(p_ht, solubility_preds.unsqueeze(-1).expand_as(p_ht)) # Scale logits by solubility predictions
@@ -161,67 +161,76 @@ class SolubilityGuider:
         if first_iter:
             p_ht_prime = p_ht
 
-        # KL(p_theta(w_hat | ht_prime) || p_theta(w_hat | h_t))
-        kl_div = F.kl_div(p_ht_prime, p_ht, reduction='none') # no reduction for per-residue computation
-        print(f'kl div: {kl_div}')
+        # Force valid probability distributions over vocab
+        p_ht_prime, p_ht = F.log_softmax(p_ht_prime, dim=-1), F.softmax(p_ht, dim=-1)
 
-        updated_seq = self._decode(p_ht_prime)
-        updated_token_ids = self.tokenizer(updated_seq, return_tensors='pt')['input_ids'].to(self.device)
-        
-        v_theta_ht_prime = self.embed_and_predict_solubility(
-            input_ids=updated_token_ids,
-            attention_masks=torch.ones_like(updated_token_ids)
+        v_ht_prime = self.embed_and_predict_solubility(
+            input_ids=updated_ids,
+            attention_masks=torch.ones_like(updated_ids)
         )['solubility_predictions']
 
-        loss = ((lamb * kl_div) - v_theta_ht_prime).requires_grad_(True) # loss term in Eq 4.
-        ht_prime_grad = torch.autograd.grad(
-            outputs=loss, 
-            inputs=p_ht_prime, # w.r.t updated logits
-            create_graph=True,
-            retain_graph=True
-        )[0]
+        def loss_fn(p_ht_prime):
+            """Jacobian helper function to implement Eq. 4"""
+            kl_div = F.kl_div(p_ht_prime, p_ht, reduction='none').sum(dim=-1) # Aggregate KL term over the vocab
+            return (lamb * kl_div - v_ht_prime).requires_grad_(True) # loss term
+        
+        ht_prime_grad = GRD.functional.jacobian(loss_fn, p_ht_prime, create_graph=True)
 
-        # Stochastic term for SGLD
-        stoch_term = torch.sqrt(2 * neta * self.temperature) * eps
+        # Remove bsz dimension and aggregate over seq_len
+        ht_prime_grad = ht_prime_grad.squeeze(0).squeeze(1).sum(dim=1)
+        p_ht_prime = p_ht_prime.squeeze(0)
 
-        # apply updates
+        # Stochastic term
+        stoch_term = math.sqrt(2 * neta * self.temperature) * eps
+
+        # SGLD update
         p_ht_prime_next = p_ht_prime - (neta * ht_prime_grad) + stoch_term
         return p_ht_prime_next
     
     
-    def optimized_sampling(self, og_seq, og_logits):
+    def optimized_sampling(self, og_seq, og_preds, og_solubility):
         """Main entry point to optimize a generated sequence."""
-        # Tokenize sequence
+        # if og_solubility >= self.sequence_density:
+        #     return og_seq, og_solubility
+    
         squeezed_ids, squeezed_masks = self.tokenize_sequence(og_seq)
+        ids, masks = squeezed_ids.unsqueeze(0), squeezed_masks.unsqueeze(0)
+        og_logits = self.medlm_lm(ids, masks).logits
 
-        solubility_preds = self.embed_and_predict_solubility(
-            input_ids=squeezed_ids.unsqueeze(0),
-            attention_masks=squeezed_masks.unsqueeze(0)
-        )['solubility_predictions']
-        frac_soluble = self.compute_frac_soluble(squeezed_ids, solubility_preds)
-        print(f'OG Frac Soluble: {frac_soluble}')
-
-        # Iterate until we hit a certain density of soluble residues
+        # Init the update variables
+        solubility_preds = og_preds
+        frac_soluble = og_solubility
+        optimized_sequence = og_seq
         iter=1
+
+        print(f"OG Sequence: {og_seq}")
+        print(f'OG Frac Soluble: {frac_soluble}')
+        print(f'OG Logits: {og_logits}')
+        
+        # Continuous optimization until solubility density threshold is reached
         while (frac_soluble < self.sequence_density):
+
             # Compute saliency map and edit positions
             saliency_map = self.compute_saliency(squeezed_ids, squeezed_masks)
-            interpolated_solubility = self.determine_edit_positions(saliency_map, solubility_preds)
+            edit_positions = self.determine_edit_positions(saliency_map, solubility_preds)
 
             # Mask low-value residues and get updated logits
-            remasked_seq_ids = self.mask_sequence(squeezed_ids, interpolated_solubility)
+            remasked_seq_ids = self.mask_sequence(squeezed_ids, edit_positions)
             updated_logits = self.diffusion.get_logits(
                 x=remasked_seq_ids,
-                attention_mask=torch.full_like(remasked_seq_ids, 1)
+                attention_mask=torch.ones_like(remasked_seq_ids)
             )
 
             # Optimize and generate the new sequence
             updated_logits = self.update_logits(
                 p_ht_prime=updated_logits,
                 p_ht=og_logits,
-                first_iter=True if iter==1 else False
+                updated_ids=remasked_seq_ids,
+                first_iter=(iter == 1)
             )
-            optimized_sequence = self._decode(updated_logits)
+
+            print(f'updated logits: {updated_logits}')
+            optimized_sequence = self.tokenizer.decode(updated_logits.argmax(dim=-1))[5:-5].replace(" ", "")
 
             # Recompute solubility density of optimized sequence
             squeezed_ids, squeezed_masks = self.tokenize_sequence(optimized_sequence)

@@ -463,8 +463,8 @@ class Diffusion(L.LightningModule):
   def get_logits(self, x, attention_mask):
     logits = self.backbone(x, attention_mask)
     if self.parameterization == "subs":
-      return self._subs_parameterization(logits=logits, xt=x)
-    return logits
+      subs_logits = self._subs_parameterization(logits=logits, xt=x)
+    return subs_logits
 
   def forward(self, x, sigma, attention_mask, print_logits=False):
     """Returns log score."""

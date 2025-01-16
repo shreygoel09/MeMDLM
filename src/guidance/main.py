@@ -229,7 +229,7 @@ def main():
     )
 
     # train or evalute the model
-    model = SolubilityClassifier(config)
+    model = SolubilityClassifier(config, sampling=False)
     if config.value.training.mode == "train":
         trainer.fit(model, datamodule=data_module)
 

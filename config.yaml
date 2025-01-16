@@ -99,7 +99,7 @@ wandb:
   notes: null
   group: programmablebio
   job_type: null
-  name: steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.50 #MeMDLM: epochs10_lr3e-4_bsz16_32-true_all-params_gradclip1_beta-one0.9_beta-two0.999_mask0.7
+  name: steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50 #MeMDLM: epochs10_lr3e-4_bsz16_32-true_all-params_gradclip1_beta-one0.9_beta-two0.999_mask0.7
   id: ${.name}_${seed}
 
 checkpointing:
@@ -124,7 +124,7 @@ value:
     devices: [0,1]
     mode: train # train / test / resume_from_checkpoint
     pretrained_model: /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16
-    lr: 3e-4
+    lr: 3e-5
     max_steps: 50000
     batch_size: 16
     dataset_size: 7632
@@ -137,7 +137,7 @@ value:
     epsilon: 1e-7
     topk: 5
     residue_thresh: 0.70
-    sequence_thresh: 0.75
+    sequence_thresh: 0.70 #0.70
     step_size: 0.1 # neta
     reg_strength: 0.5 # lambda
 

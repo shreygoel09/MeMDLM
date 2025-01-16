@@ -8,15 +8,23 @@ Some weights of EsmModel were not initialized from the model checkpoint at /work
 You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
 /workspace/sg666/MeMDLM/MeMDLM/src/guidance/main.py:187: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
   checkpoint = torch.load(ckpt_path, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-Generating sequences:   0%|          | 0/1 [00:00<?, ?it/s]Generating sequences:   0%|          | 0/1 [00:02<?, ?it/s]
+Generating sequences:   0%|          | 0/1 [00:00<?, ?it/s]Generating sequences:   0%|          | 0/1 [00:07<?, ?it/s]
 Error executing job with overrides: []
 Traceback (most recent call last):
   File "/workspace/sg666/MeMDLM/MeMDLM/src/scripts/generate.py", line 59, in main
-    optimized_sequence, optimized_solubility = guidance.optimized_sampling(og_sequence, og_logits)
-  File "/workspace/sg666/MeMDLM/MeMDLM/src/guidance/guidance.py", line 219, in optimized_sampling
-    updated_logits = self.update_logits(
-  File "/workspace/sg666/MeMDLM/MeMDLM/src/guidance/guidance.py", line 154, in update_logits
-    eps = torch.randn_like(p_ht).to(self.device) # eps ~ N(0, 1)
-RuntimeError: "normal_kernel_cuda" not implemented for 'Long'
+    optimized_sequence, optimized_solubility = guidance.optimized_sampling(og_sequence, og_preds, og_solubility)
+  File "/workspace/sg666/MeMDLM/MeMDLM/src/guidance/guidance.py", line 214, in optimized_sampling
+    saliency_map = self.compute_saliency(squeezed_ids, squeezed_masks)
+  File "/workspace/sg666/MeMDLM/MeMDLM/src/guidance/guidance.py", line 87, in compute_saliency
+    jacobian = GRD.functional.jacobian(jacobian_fn, embeddings, create_graph=True)
+  File "/usr/local/lib/python3.10/dist-packages/torch/autograd/functional.py", line 787, in jacobian
+    vj = _autograd_grad(
+  File "/usr/local/lib/python3.10/dist-packages/torch/autograd/functional.py", line 193, in _autograd_grad
+    return torch.autograd.grad(
+  File "/usr/local/lib/python3.10/dist-packages/torch/autograd/__init__.py", line 436, in grad
+    result = _engine_run_backward(
+  File "/usr/local/lib/python3.10/dist-packages/torch/autograd/graph.py", line 769, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 1 has a total capacity of 47.41 GiB of which 5.44 MiB is free. Process 870259 has 1.48 GiB memory in use. Process 1272049 has 45.89 GiB memory in use. Of the allocated memory 44.05 GiB is allocated by PyTorch, and 1.34 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
 
 Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
