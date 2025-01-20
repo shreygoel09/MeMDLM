@@ -8,10 +8,11 @@ import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from generate_utils import mask_for_de_novo
+from generate_utils import mask_for_de_novo, mask_for_scaffold
 from MeMDLM.src.diffusion.diffusion import Diffusion
 from MeMDLM.src.guidance.guidance import SolubilityGuider
 
+data_path = "/workspace/sg666/MeMDLM/MeMDLM/data/membrane/test.csv"
 
 
 @torch.no_grad()
@@ -40,37 +41,59 @@ def main(config, optimize: bool=True):
     ).eval().to(device)
 
     guidance = SolubilityGuider(config, device, mdlm) # Pass Diffusion model to prevent loading twice
+    
+    with open(data_path, "r") as f:
+        sequences = f.readlines()[1:]
 
     print("loaded models...")
 
     # Get 100 random sequence lengths to generate
     #sequence_lengths = [random.randint(50, 500) for _ in range(700)] 
-    sequence_lengths = [250]
 
     generation_results = []
-    for seq_length in tqdm(sequence_lengths, desc=f"Generating sequences: "):
-        og_sequence = generate_sequence(seq_length, tokenizer, mdlm)
+    for sequence in tqdm(sequences, desc=f"Generating sequences: "):
+        og_sequence = mask_for_scaffold(sequence, "uppercase") # SOLUBLE IS LOWERCASE!!!!!!!
         tokens = tokenizer(og_sequence, return_tensors='pt')
-        ids, masks = tokens['input_ids'], tokens['attention_mask']
-        og_preds = guidance.embed_and_predict_solubility(ids, masks)['solubility_predictions']
-        og_solubility = guidance.compute_frac_soluble(ids, og_preds)
-
-        if optimize:
-            optimized_sequence, optimized_solubility = guidance.optimized_sampling(og_sequence, og_preds, og_solubility)
         
-        og_ppl = mdlm.compute_masked_perplexity([og_sequence], masked_sequence)
-        optimized_ppl = mdlm.compute_masked_perplexity([optimized_sequence], masked_sequence)
-        og_ppl, optimized_ppl = round(og_ppl, 4), round(optimized_ppl, 4)
+        # calculate og solubility
+        nlower = 0
+        for s in sequence: 
+            if s.islower(): nlower+=1
+        
+        raw_solub_frac = nlower / len(sequence)
+        og_tokens = tokenizer(sequence, return_tensors='pt')
+        og_solubility_preds = guidance.embed_and_predict_solubility(og_tokens["input_ids"], og_tokens["attention_mask"])["solubility_predictions"]
+        og_solubility = guidance.compute_frac_soluble(og_tokens["input_ids"], og_solubility_preds)
 
-        generation_results.append([og_sequence, og_ppl, optimized_sequence, optimized_ppl])
+        sys.stdout.flush()
+        if optimize:
+            optimized_sequence, sequence_str = guidance.sample_guidance(x_0 = tokens, guidance=True)
+            no_guide_seq, no_guide_str = guidance.sample_guidance(x_0 = tokens, guidance=False)
+        
+        # og_ppl = mdlm.compute_masked_perplexity([og_sequence], masked_sequence)
+        # print("size: ", optimized_sequence.size())
+        # optimized_ppl = mdlm.compute_masked_perplexity([sequence_str], og_sequence)
+        # optimized_ppl = round(optimized_ppl, 4)
+        
+        print("sequence: ", sequence)
+        print("optimized: ", sequence_str.replace(" ", ""))
+        
+        tokens = tokenizer(sequence_str, return_tensors="pt")
+        solubility_preds = guidance.embed_and_predict_solubility(tokens["input_ids"], tokens["attention_mask"])["solubility_predictions"]
+        optimized_solubility = guidance.compute_frac_soluble(tokens["input_ids"], solubility_preds)
+        
+        no_tokens = tokenizer(no_guide_str, return_tensors="pt")
+        no_solubility_preds = guidance.embed_and_predict_solubility(no_tokens["input_ids"], no_tokens["attention_mask"])["solubility_predictions"]
+        no_optimized_solubility = guidance.compute_frac_soluble(no_tokens["input_ids"], no_solubility_preds)
 
-        print(f"original ppl: {og_ppl} | origional solubility: {og_solubility} | length: {seq_length} | generated sequence: {og_sequence}")
-        print(f"optimized ppl: {optimized_ppl} | optimized solubility: {optimized_solubility} | length: {seq_length} | generated sequence: {optimized_sequence}")
-        print('\n')
+        generation_results.append([og_sequence, optimized_sequence, 123])
+
+        # print(f"original ppl: {og_ppl} | original solubility: {og_solubility} | length: {seq_length} | generated sequence: {og_sequence}")
+        print(f"og solubility: {og_solubility} | raw solubility: {raw_solub_frac} | no guide solubility: {no_optimized_solubility} | optimized solubility: {optimized_solubility} | solubility diff: {optimized_solubility - og_solubility}")
         sys.stdout.flush()
 
-    df = pd.DataFrame(generation_results, columns=['OG Sequence', 'OG PPL', 'Optimized Sequence', 'Optimized PPL'])
-    df.to_csv(path + f'/benchmarks/de_novo_generation_results.csv', index=False)
+    # df = pd.DataFrame(generation_results, columns=['OG Sequence', 'OG PPL', 'Optimized Sequence', 'Optimized PPL'])
+    # df.to_csv(path + f'/benchmarks/de_novo_generation_results.csv', index=False)
 
     
 if __name__ == "__main__":
