@@ -1,6 +1,8 @@
 import os
+import sys
 import math
 import torch
+from torch import nn
 import torch.nn.functional as F
 import torch.autograd as GRD
 from transformers import AutoModel, AutoModelForMaskedLM, AutoTokenizer
@@ -8,6 +10,15 @@ from transformers import AutoModel, AutoModelForMaskedLM, AutoTokenizer
 from MeMDLM.src.guidance.main import SolubilityClassifier
 from MeMDLM.src.diffusion.diffusion import Diffusion
 from MeMDLM.src.guidance.utils import _print
+from tqdm import tqdm, trange
+from argparse import Namespace
+
+
+def _sample_categorical(categorical_probs):
+  gumbel_norm = (
+    1e-10
+    - (torch.rand_like(categorical_probs) + 1e-10).log())
+  return (categorical_probs / gumbel_norm).argmax(dim=-1)
 
 
 class SolubilityGuider:
@@ -18,10 +29,10 @@ class SolubilityGuider:
 
         self.diffusion = mdlm
         self.memdlm = AutoModel.from_pretrained(config.value.training.pretrained_model).eval().to(self.device)
-        self.medlm_lm = AutoModelForMaskedLM.from_pretrained(self.config.value.training.pretrained_model).eval().to(self.device)
+        self.medlm_lm = AutoModelForMaskedLM.from_pretrained(self.config.value.training.pretrained_model, output_hidden_states=True).eval().to(self.device)
 
         #ckpt_path = os.path.join(config.value.training.ckpt_path, "best_model.ckpt")
-        ckpt_path = "/workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.50"
+        ckpt_path = "/workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50"
         self.classifier_model = SolubilityClassifier(config, sampling=True).eval().to(self.device)
         state_dict = self.classifier_model._get_state_dict(ckpt_path + "/best_model.ckpt")
         self.classifier_model.load_state_dict(state_dict)
@@ -66,7 +77,7 @@ class SolubilityGuider:
         }
 
 
-    def compute_saliency(self, input_ids, attention_masks):
+    def compute_saliency(self, embeddings, attention_masks):
         """
         Compute a saliency map using gradients as defined in LaMBO-2 (https://arxiv.org/pdf/2305.20009)
         Args:
@@ -76,22 +87,24 @@ class SolubilityGuider:
             input_ids (torch.Tensor): squeezed token IDS [seq_len]
         """
         # get sequence embeddings and per-residue predictions
-        outs = self.embed_and_predict_solubility(input_ids, attention_masks)
-        embeddings = outs['sequence_embeddings']
-        preds = outs['solubility_predictions']
-
-        def jacobian_fn(embeddings):
-            batch = {"embeddings": embeddings, "attention_mask": attention_masks}
-            return self.classifier_model.forward(batch)
-
-        jacobian = GRD.functional.jacobian(jacobian_fn, embeddings, create_graph=True)
-
+        
+        grads = nn.Parameter(torch.zeros_like(embeddings), requires_grad=True)
+        optim = torch.optim.SGD([grads], lr=1) # 1x the gradient value = gradient value itself i think
+        
+        batch = {"embeddings": (embeddings + grads).squeeze(), "attention_mask": attention_masks.squeeze()}
+        out = self.classifier_model.forward(batch).sum() # note: sum and mean should scale same due to normalization of salience?
+                
+        out.backward(retain_graph=True)
+        optim.step() # stores gradients in delta
+        
+        # jacobian = GRD.functional.jacobian(jacobian_fn, embeddings, create_graph=True)
+        
         # Creating a saliency map (Eq.5 in LaMBO-2 paper)
-        saliency = jacobian.abs().sum(dim=-1)  # summation across hidden dim. Abs value for directionality only
+        saliency = grads.abs().sum(dim=-1)  # summation across hidden dim. Abs value for directionality only
         saliency = saliency.pow(1.0 / self.temperature)
-        saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min())
-        saliency = saliency.clamp(min=self.eps).to(self.device).diag()
-        return saliency
+        # saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min())
+        saliency = saliency.clamp(min=self.eps).to(self.device)
+        return saliency.squeeze()
 
         # # Compute gradients of value function wrt hidden states
         # gradients = torch.autograd.grad(
@@ -119,14 +132,20 @@ class SolubilityGuider:
         # #topk_edit_probs, topk_edit_pos = torch.topk(probabilities, self.topk) # select edit positions
 
         # return probabilities.to(self.device) #, topk_edit_probs
-        probabilities = saliency_map / saliency_map.sum()
-        probabilities = probabilities.masked_fill(solubility_preds <= self.residue_thresh, 0.0)
-        return probabilities
+        probabilities = saliency_map.masked_fill(solubility_preds >= self.residue_thresh, 0.0) # exclude already soluble sequences
+        probabilities = probabilities / probabilities.sum()
+        nonzero = probabilities.count_nonzero().item()
+        # print(probabilities)
+        topk_edit_probs, topk_edit_pos = torch.topk(probabilities, min(self.topk, nonzero))
+        # print(topk_edit_pos)
+        mask = torch.zeros_like(probabilities).scatter(0, topk_edit_pos, torch.ones_like(probabilities))
+        
+        return mask
     
     def mask_sequence(self, input_ids, interpolated_solubility):
         """Mask out low-vaue residues"""
         return torch.where(
-            interpolated_solubility > 0.5,
+            interpolated_solubility==0,
             input_ids.to(self.device),
             torch.full_like(input_ids, self.tokenizer.mask_token_id).to(self.device)
         ).unsqueeze(0)
@@ -137,7 +156,13 @@ class SolubilityGuider:
         frac_soluble = (num_soluble / solubility_preds.numel())
         return frac_soluble
 
-    def update_logits(self, p_ht_prime, p_ht, updated_ids, first_iter: bool):
+    def compute_logits_value_from_hidden(self, hidden_states, attention_mask):
+        batch = {"embeddings": hidden_states.squeeze(), "attention_mask": attention_mask.squeeze()}
+        solubility_preds = self.classifier_model(batch)
+        # print(self.medlm_lm.__dict__)
+        return self.medlm_lm.lm_head(hidden_states), solubility_preds
+
+    def update_logits(self, p_ht_prime, og_logits, hidden_state_mask, attention_mask, optimizer, delta):
         """
         Shift logits distribution towards only soluble residues.
         Implementation of SGLD update step (Eq. 4 in LaMBO-2 paper).
@@ -149,103 +174,104 @@ class SolubilityGuider:
             - updated_logits (torch.Tensor): updated diffusion logits
         """
 
-        neta = self.config.value.guidance.step_size
+        # neta = self.config.value.guidance.step_size
         lamb = self.config.value.guidance.reg_strength
-        eps = torch.normal(mean=0.0, std=1.0, size=(1,)).clamp(-3.0, 3.0).item() # eps ~ N(0, 1)
+        # eps = torch.normal(mean=0.0, std=1.0, size=(1,)).clamp(-3.0, 3.0).item() # eps ~ N(0, 1)
 
-        # ~p_theta(w_hat | h_t)
-        # p_ht_prime = torch.pow(p_ht, solubility_preds.unsqueeze(-1).expand_as(p_ht)) # Scale logits by solubility predictions
-        # p_ht_prime = p_ht / p_ht_prime.sum(dim=-1, keepdim=True) # valid probability distribution over vocabulary
-
-        # First round of iteration has same logits
-        if first_iter:
-            p_ht_prime = p_ht
-
-        # Force valid probability distributions over vocab
-        p_ht_prime, p_ht = F.log_softmax(p_ht_prime, dim=-1), F.softmax(p_ht, dim=-1)
-
-        v_ht_prime = self.embed_and_predict_solubility(
-            input_ids=updated_ids,
-            attention_masks=torch.ones_like(updated_ids)
-        )['solubility_predictions']
-
-        def loss_fn(p_ht_prime):
-            """Jacobian helper function to implement Eq. 4"""
-            kl_div = F.kl_div(p_ht_prime, p_ht, reduction='none').sum(dim=-1) # Aggregate KL term over the vocab
-            return (lamb * kl_div - v_ht_prime).requires_grad_(True) # loss term
+        hidden_state_mask = hidden_state_mask.unsqueeze(-1)
         
-        ht_prime_grad = GRD.functional.jacobian(loss_fn, p_ht_prime, create_graph=True)
-
-        # Remove bsz dimension and aggregate over seq_len
-        ht_prime_grad = ht_prime_grad.squeeze(0).squeeze(1).sum(dim=1)
-        p_ht_prime = p_ht_prime.squeeze(0)
-
-        # Stochastic term
-        stoch_term = math.sqrt(2 * neta * self.temperature) * eps
-
-        # SGLD update
-        p_ht_prime_next = p_ht_prime - (neta * ht_prime_grad) + stoch_term
-        return p_ht_prime_next
+        h_current = p_ht_prime + hidden_state_mask * delta
+        new_logits, v_ht_prime = self.compute_logits_value_from_hidden(h_current, attention_mask)
+        
+        loss = lamb * F.kl_div(new_logits, og_logits) - v_ht_prime.sum() # summing across dim instead of mean (this is used in the official implementation)
+        
+        loss.backward(retain_graph=True) # computing gradients relative to the input hidden states (the gradient param in the langevin dynamics eq)
+        optimizer.step() # populates delta with the gradient of the loss function * the step size!!!!!
+        optimizer.zero_grad()
+        
+        # stoch_term = math.sqrt(2 * neta * self.temperature) * eps
+        
+        # h_new = (h_current + (delta.data * hidden_state_mask)).detach()
+        # updated_logits, _vht1 = self.compute_logits_value_from_hidden(h_new, attention_mask)
+        
+        return delta
     
-    
-    def optimized_sampling(self, og_seq, og_preds, og_solubility):
+    def optimized_sampling(self, og_logits, og_hidden, attention_mask, n_steps=None, use_stoch_term=False):
         """Main entry point to optimize a generated sequence."""
         # if og_solubility >= self.sequence_density:
         #     return og_seq, og_solubility
-    
-        squeezed_ids, squeezed_masks = self.tokenize_sequence(og_seq)
-        ids, masks = squeezed_ids.unsqueeze(0), squeezed_masks.unsqueeze(0)
-        og_logits = self.medlm_lm(ids, masks).logits
+        if n_steps is None: n_steps = self.config.value.guidance.n_steps
 
-        # Init the update variables
-        solubility_preds = og_preds
-        frac_soluble = og_solubility
-        optimized_sequence = og_seq
-        iter=1
-
-        print(f"OG Sequence: {og_seq}")
-        print(f'OG Frac Soluble: {frac_soluble}')
-        print(f'OG Logits: {og_logits}')
+        # cur_hidden = og_hidden
+        # cur_logits = og_logits
+        batch = {"embeddings": og_hidden.squeeze(), "attention_mask": attention_mask.squeeze()}
+        solubility_preds = self.classifier_model(batch)
+        
+        neta = self.config.value.guidance.step_size
+        
+        delta = nn.Parameter(torch.zeros_like(og_hidden), requires_grad=True)
+        optimizer = torch.optim.Adagrad([delta], lr=neta) # here we initialize an sgd per iteration, but the official implementation does an adagrad, possibly for smaller scaling updates over time?
+        optimizer.zero_grad()
         
         # Continuous optimization until solubility density threshold is reached
-        while (frac_soluble < self.sequence_density):
+        with torch.enable_grad():
+            for i in range(n_steps):
 
-            # Compute saliency map and edit positions
-            saliency_map = self.compute_saliency(squeezed_ids, squeezed_masks)
-            edit_positions = self.determine_edit_positions(saliency_map, solubility_preds)
+                # Compute saliency map and edit positions
+                saliency_map = self.compute_saliency(og_hidden + delta.data, attention_mask)
+                mask = self.determine_edit_positions(saliency_map, solubility_preds)
 
-            print(f'saliency map: {saliency_map}')
-            print(f'init preds: {solubility_preds}')
-            print(f'edit pos: {edit_positions}')
+                # Optimize and generate the new sequence
+                delta = self.update_logits(
+                    p_ht_prime=og_hidden,
+                    og_logits=og_logits,
+                    hidden_state_mask=mask,
+                    attention_mask=attention_mask,
+                    optimizer=optimizer,
+                    delta=delta
+                )
 
-            # Mask low-value residues and get updated logits
-            remasked_seq_ids = self.mask_sequence(squeezed_ids, edit_positions)
-            updated_logits = self.diffusion.get_logits(
-                x=remasked_seq_ids,
-                attention_mask=torch.ones_like(remasked_seq_ids)
-            )
-
-            # Optimize and generate the new sequence
-            updated_logits = self.update_logits(
-                p_ht_prime=updated_logits,
-                p_ht=og_logits,
-                updated_ids=remasked_seq_ids,
-                first_iter=(iter == 1)
-            )
-
-            optimized_sequence = self.tokenizer.decode(updated_logits.argmax(dim=-1))[5:-5].replace(" ", "")
-
-            # Recompute solubility density of optimized sequence
-            squeezed_ids, squeezed_masks = self.tokenize_sequence(optimized_sequence)
-            solubility_preds = self.embed_and_predict_solubility(
-                input_ids=squeezed_ids.unsqueeze(0),
-                attention_masks=squeezed_masks.unsqueeze(0)
-            )['solubility_predictions']
-            frac_soluble = self.compute_frac_soluble(squeezed_ids, solubility_preds)
-
-            iter += 1
-
-            print(f'optim seq: {optimized_sequence}')
-            print(f'optim sol: {frac_soluble}')
-
-        return optimized_sequence, frac_soluble
+        h_new = og_hidden + delta.data
+        new_logits, _new_sol = self.compute_logits_value_from_hidden(h_new, attention_mask)
+                        
+        return new_logits
+    
+    def sample_guidance(self, x_0 = None, num_steps=None, eps=1e-5, bsz=1, guidance=True):
+        if num_steps is None: num_steps = self.config.sampling.steps
+        
+        # if a prior sequence is given
+        if x_0 is not None:
+            x = x_0.input_ids.to(self.device)
+            attention_mask = x_0.attention_mask.to(self.device)
+        else: # generate prior of just mask tokens
+            x = self.diffusion._sample_prior(bsz, self.config.model.length).to(self.device)
+            attention_mask = torch.ones_like(x, device=self.device)
+        timesteps = torch.linspace(1, eps, num_steps + 1, device=self.device)
+        
+        dt = (1 - eps) / num_steps
+        
+        for i in trange(num_steps):
+            t = timesteps[i] * torch.ones(x.shape[0], 1, device=self.device)
+            # sigma_t, _ = self.diffusion.noise(t)
+            logits, hidden_states = self.diffusion.backbone.forward_hidden(x, attention_mask)
+            if guidance: logits = self.optimized_sampling(logits, hidden_states, attention_mask)
+            logits_wrapper = Namespace() # quick fix to be compatible with subs function, bc it accesses logits.logits for some reason
+            logits_wrapper.logits = logits
+            p_x0 = self.diffusion._subs_parameterization(logits=logits_wrapper, xt=x)
+            
+            # computing move chance categoricals
+            move_chance_t = t[:, None, None]
+            move_chance_s = (t - dt)[:, None, None]
+            q_xs = p_x0 * (move_chance_t - move_chance_s)
+            q_xs[:, :, self.diffusion.mask_index] = move_chance_s[:, :, 0]
+            _x = _sample_categorical(q_xs) # sampling move chances in reverse process
+            
+            copy_flag = (x != self.diffusion.mask_index).to(x.dtype)
+            x = (copy_flag * x + (1 - copy_flag) * _x).squeeze(0)
+                    
+        # if self.config.sampling.noise_removal:
+        #     t = timesteps[-1] * torch.ones(x.shape[0], 1, device=self.device)
+        #     unet_conditioning
+        
+        return x, self.tokenizer.decode(x.squeeze())
+            

@@ -1,5 +1,6 @@
 import os
 import gc
+import sys
 import fsspec
 import rich
 import rich.tree
@@ -167,10 +168,11 @@ class SolubilityClassifier(pl.LightningModule):
         preds = preds[valid_mask]
 
         print(f"labels {labels.shape}")
-        print(f"preds {preds.shape}")
+        sys.stdout.flush()
+        # print(f"preds {preds.shape}")
 
-        print(labels)
-        print(preds)
+        # print(labels)
+        # print(preds)
 
         auroc = self.auroc.forward(preds, labels)
         accuracy = self.accuracy.forward(preds, labels)
