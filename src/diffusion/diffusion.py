@@ -93,7 +93,7 @@ class CosineWarmup(_LRScheduler):
 class WrapVanillaESM(nn.Module):
   def __init__(self, bert_model_path):
     super(WrapVanillaESM, self).__init__()
-    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path, device_map='cpu')
+    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path, device_map='cpu', output_hidden_states=True)
     self.tokenizer = AutoTokenizer.from_pretrained(bert_model_path)
 
   def __call__(self, *args, **kwargs):
@@ -121,6 +121,10 @@ class WrapVanillaESM(nn.Module):
   def forward(self, inputs, sigma, attention_mask):
     logits = self.model(input_ids=inputs, attention_mask=attention_mask).logits
     return logits
+  
+  def forward_hidden(self, inputs, attention_mask):
+    output = self.model(input_ids=inputs, attention_mask=attention_mask)
+    return output.logits, output.hidden_states[-1]
 
   def save_model(self, save_dir):
       self.model.save_pretrained(save_dir)
@@ -134,7 +138,7 @@ class WrapVanillaESM(nn.Module):
 class WrapMembraneESM(nn.Module):
   def __init__(self, bert_model_path):
     super(WrapMembraneESM, self).__init__()
-    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path, device_map='cpu')
+    self.model = AutoModelForMaskedLM.from_pretrained(bert_model_path, device_map='cpu', output_hidden_states=True)
     self.tokenizer = AutoTokenizer.from_pretrained(bert_model_path)
   
   def __call__(self, *args, **kwargs):
@@ -166,6 +170,10 @@ class WrapMembraneESM(nn.Module):
   def forward(self, inputs, sigma, attention_mask):
     logits = self.model(input_ids=inputs, attention_mask=attention_mask).logits
     return logits
+  
+  def forward_hidden(self, inputs, sigma, attention_mask):
+    output = self.model(input_ids=inputs, attention_mask=attention_mask)
+    return output.logits, output.hidden_states[-1]
 
   def save_model(self, save_dir):
       self.model.save_pretrained(save_dir)
@@ -410,8 +418,9 @@ class Diffusion(L.LightningModule):
     # log prob at the mask index = - infinity
     logits = logits.logits
     logits[:, :, self.mask_index] += self.neg_infinity
-    # logits[:, :, self.tokenizer.eos_token_id] += self.neg_infinity
-    # logits[:, :, self.tokenizer.cls_token_id] += self.neg_infinity
+    logits[:, :, self.tokenizer.eos_token_id] += self.neg_infinity
+    logits[:, :, self.tokenizer.cls_token_id] += self.neg_infinity
+    logits[:, :, self.tokenizer.pad_token_id] += self.neg_infinity
     
     # Normalize the logits such that x.exp() is
     # a probability distribution over vocab_size.
@@ -865,10 +874,10 @@ class Diffusion(L.LightningModule):
     for sequence in sequences:
         # Tokenize the sequence
         input_ids = self.tokenizer(masked, return_tensors="pt").input_ids.to(self.device)
-        gt_ids = self.tokenizer(sequence.upper(), return_tensors="pt").input_ids.to(self.device)
+        gt_ids = self.tokenizer(sequence[5:-5].upper(), return_tensors="pt").input_ids.to(self.device)
 
-        print(f'comp gen ppl input ids: {input_ids.shape}')
-        print(f'comp gen ppl gt ids: {gt_ids.shape}')
+        # print(f'comp gen ppl input ids: {input_ids.shape}')
+        # print(f'comp gen ppl gt ids: {gt_ids.shape}')
 
         # Forward pass through the ESM model
         attention_mask = torch.ones_like(input_ids)
@@ -876,7 +885,9 @@ class Diffusion(L.LightningModule):
           outputs = self.backbone.model.forward(input_ids=input_ids, attention_mask=attention_mask)
         elif self.config.mode == "sample_eval":
           outputs = self.backbone.model.forward(input_ids)
-        logits = outputs[-1] # B, L, V
+        logits = outputs[0] # B, L, V
+        # print(sequence, gt_ids)
+        # print(outputs[0].size())
 
         # Compute loss
         # shift_logits = logits[:, :-1, :].contiguous() # remove eos
