@@ -9,29 +9,6 @@ from transformers import AutoModelForMaskedLM, AutoModel, AutoTokenizer
 def mask_for_de_novo(sequence_length):
     return "<mask>" * sequence_length
 
-def generate_de_novo(sequence_length, tokenizer, model):
-    masked_sequence = mask_for_de_novo(sequence_length)
-    inputs = tokenizer(masked_sequence, return_tensors='pt').to(model.device)
-
-    with torch.no_grad():
-        logits = model(**inputs).logits
-    mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
-    logits_at_masks = logits[0, mask_token_indices]
-
-    pred_tokens = []
-    for i in mask_token_indices:
-        topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
-        probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
-        predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
-        predicted_token_id = topk_indices[predicted_index].item()
-        predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
-        pred_tokens.append(predicted_token)
-    
-    generated_sequence = ''.join(pred_tokens)
-    perplexity = calculate_perplexity(model, tokenizer, generated_sequence)
-
-    return (generated_sequence, perplexity)
-
 
 def mask_for_scaffold(sequence, generate_type):
     if generate_type == "uppercase":
@@ -39,32 +16,6 @@ def mask_for_scaffold(sequence, generate_type):
     elif generate_type == "lowercase":
         sequence = ''.join(["<mask>" if residue.islower() else residue for residue in sequence])   
     return sequence
-
-
-def generate_scaffold(sequence, generate_type, tokenizer, model):
-    masked_sequence = mask_for_scaffold(sequence, generate_type)
-    inputs = tokenizer(masked_sequence, return_tensors='pt').to(model.device)
-
-    with torch.no_grad():
-        logits = model(**inputs).logits
-    mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
-    logits_at_masks = logits[0, mask_token_indices]
-
-    pred_tokens = []
-    for i in range(len(mask_token_indices)):
-        topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
-        probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
-        predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
-        predicted_token_id = topk_indices[predicted_index].item()
-        predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
-
-        pred_tokens.append('G' if predicted_token == '' else predicted_token)
-
-    generated_sequence = masked_sequence
-    for token in pred_tokens:
-        generated_sequence = generated_sequence.replace("<mask>", token, 1)
-
-    return generated_sequence, mask_token_indices
 
 
 def calculate_perplexity(model, tokenizer, generated_sequence, mask_token_indices):
@@ -106,3 +57,60 @@ def calculate_hamming_dist(original_sequence, generated_sequence):
     generated_sequence = generated_sequence.upper()
     original_sequence = original_sequence.upper()
     return sum(1 if original_sequence[i] != generated_sequence[i] else 0 for i in range(len(original_sequence)))
+
+
+
+
+
+########################################################
+###                MLM Sampling Methods              ###
+########################################################
+
+def generate_de_novo(sequence_length, tokenizer, model):
+    masked_sequence = mask_for_de_novo(sequence_length)
+    inputs = tokenizer(masked_sequence, return_tensors='pt').to(model.device)
+
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
+    logits_at_masks = logits[0, mask_token_indices]
+
+    pred_tokens = []
+    for i in mask_token_indices:
+        topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
+        probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
+        predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
+        predicted_token_id = topk_indices[predicted_index].item()
+        predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
+        pred_tokens.append(predicted_token)
+    
+    generated_sequence = ''.join(pred_tokens)
+    perplexity = calculate_perplexity(model, tokenizer, generated_sequence)
+
+    return (generated_sequence, perplexity)
+
+
+def generate_scaffold(sequence, generate_type, tokenizer, model):
+    masked_sequence = mask_for_scaffold(sequence, generate_type)
+    inputs = tokenizer(masked_sequence, return_tensors='pt').to(model.device)
+
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    mask_token_indices = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
+    logits_at_masks = logits[0, mask_token_indices]
+
+    pred_tokens = []
+    for i in range(len(mask_token_indices)):
+        topk_logits, topk_indices = logits_at_masks[i].topk(k=3, dim=-1)
+        probabilities = torch.nn.functional.softmax(topk_logits, dim=-1)
+        predicted_index = torch.distributions.categorical.Categorical(probabilities).sample()
+        predicted_token_id = topk_indices[predicted_index].item()
+        predicted_token = tokenizer.decode([predicted_token_id], skip_special_tokens=True)
+
+        pred_tokens.append('G' if predicted_token == '' else predicted_token)
+
+    generated_sequence = masked_sequence
+    for token in pred_tokens:
+        generated_sequence = generated_sequence.replace("<mask>", token, 1)
+
+    return generated_sequence, mask_token_indices

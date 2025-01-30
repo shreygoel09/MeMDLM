@@ -42,7 +42,7 @@ loader:
 
 sampling:
   predictor: ddpm_cache  # analytic, ddpm, ddpm_cache
-  steps: 128
+  steps: 16
   noise_removal: True
   # TODO(yair): @subham, why aren't these params under `eval`?
   num_sample_batches: 2  # Total samples: `num_gpus` * `loader.eval_batch_size` * num_sample_batches
@@ -122,7 +122,7 @@ value:
     num_layers: 4
   training:
     devices: [0,1]
-    mode: train # train / test / resume_from_checkpoint
+    mode: test # train / test / resume_from_checkpoint
     pretrained_model: /workspace/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16
     lr: 3e-5
     max_steps: 50000
@@ -130,16 +130,18 @@ value:
     dataset_size: 7632
     warmup_ratio: 0.05
     log_n_steps: 2
-    ckpt_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/${wandb.name}/
+    # ckpt_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/${wandb.name}/
+    ckpt_path: /workspace/sg666/MeMDLM/MeMDLM/checkpoints/classifier/steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.50/
     model_ckpting_name: 
   guidance:
     temperature: 0.9
     epsilon: 1e-4
-    topk: 5
+    topk: 10
     residue_thresh: 0.50
     sequence_thresh: 0.70
-    step_size: 0.1 # neta
-    reg_strength: 0.5 # lambda
+    step_size: 1 # neta
+    reg_strength: 1 # lambda
+    n_steps: 16
 
 
 

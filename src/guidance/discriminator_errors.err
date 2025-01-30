@@ -9,11 +9,11 @@ wandb: Currently logged in as: shrey-goel (programmablebio). Use `wandb login --
 wandb: wandb version 0.19.4 is available!  To upgrade, please run:
 wandb:  $ pip install wandb --upgrade
 wandb: Tracking run with wandb version 0.13.5
-wandb: Run data is saved locally in /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250120_163350-der2dnkj
+wandb: Run data is saved locally in /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250126_175657-nb43ow3i
 wandb: Run `wandb offline` to turn off syncing.
 wandb: Syncing run steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50
 wandb: ⭐️ View project at https://wandb.ai/programmablebio/MeMDLM_Guidance
-wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/der2dnkj
+wandb: 🚀 View run at https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/nb43ow3i
 GPU available: True (cuda), used: True
 TPU available: False, using: 0 TPU cores
 IPU available: False, using: 0 IPUs
@@ -34,7 +34,7 @@ Loaded model weights from the checkpoint at /workspace/sg666/MeMDLM/MeMDLM/check
 /usr/local/lib/python3.10/dist-packages/torch/nn/modules/transformer.py:409: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. (Triggered internally at ../aten/src/ATen/NestedTensorImpl.cpp:178.)
   output = torch._nested_tensor_from_mask(output, src_key_padding_mask.logical_not(), mask_check=False)
 wandb: Waiting for W&B process to finish... (success).
-wandb: - 0.013 MB of 0.013 MB uploaded (0.000 MB deduped)wandb: \ 0.013 MB of 0.013 MB uploaded (0.000 MB deduped)wandb: | 0.013 MB of 0.013 MB uploaded (0.000 MB deduped)wandb: 
+wandb: - 0.013 MB of 0.013 MB uploaded (0.000 MB deduped)wandb: \ 0.013 MB of 0.029 MB uploaded (0.000 MB deduped)wandb: | 0.013 MB of 0.029 MB uploaded (0.000 MB deduped)wandb: / 0.013 MB of 0.029 MB uploaded (0.000 MB deduped)wandb: 
 wandb: Run history:
 wandb:               epoch ▁
 wandb:          test/AUROC ▁
@@ -44,11 +44,11 @@ wandb: trainer/global_step ▁
 wandb: 
 wandb: Run summary:
 wandb:               epoch 0
-wandb:          test/AUROC 0.92433
-wandb:       test/accuracy 0.85249
-wandb:           test/loss 0.33914
+wandb:          test/AUROC 0.92532
+wandb:       test/accuracy 0.85368
+wandb:           test/loss 0.33906
 wandb: trainer/global_step 0
 wandb: 
-wandb: Synced steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50: https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/der2dnkj
+wandb: Synced steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50: https://wandb.ai/programmablebio/MeMDLM_Guidance/runs/nb43ow3i
 wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20250120_163350-der2dnkj/logs
+wandb: Find logs at: ./wandb/run-20250126_175657-nb43ow3i/logs

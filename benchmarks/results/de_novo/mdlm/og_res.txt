@@ -1,0 +1,877 @@
+# OG1 Length: 314
+# OG1 Number of predicted TMRs: 0
+OG1 inside 1 314
+//
+# OG2 Length: 377
+# OG2 Number of predicted TMRs: 7
+OG2 outside 1 9
+OG2 TMhelix 10 27
+OG2 inside 28 54
+OG2 TMhelix 55 72
+OG2 outside 73 83
+OG2 TMhelix 84 102
+OG2 inside 103 137
+OG2 TMhelix 138 156
+OG2 outside 157 166
+OG2 TMhelix 167 176
+OG2 inside 177 194
+OG2 TMhelix 195 204
+OG2 outside 205 217
+OG2 TMhelix 218 227
+OG2 inside 228 377
+//
+# OG3 Length: 188
+# OG3 Number of predicted TMRs: 4
+OG3 inside 1 5
+OG3 TMhelix 6 24
+OG3 outside 25 54
+OG3 TMhelix 55 75
+OG3 inside 76 91
+OG3 TMhelix 92 111
+OG3 outside 112 143
+OG3 TMhelix 144 164
+OG3 inside 165 188
+//
+# OG4 Length: 430
+# OG4 Number of predicted TMRs: 6
+OG4 inside 1 60
+OG4 TMhelix 61 73
+OG4 outside 74 85
+OG4 TMhelix 86 103
+OG4 inside 104 127
+OG4 TMhelix 128 138
+OG4 outside 139 196
+OG4 TMhelix 197 206
+OG4 inside 207 230
+OG4 TMhelix 231 245
+OG4 outside 246 277
+OG4 TMhelix 278 287
+OG4 inside 288 430
+//
+# OG5 Length: 342
+# OG5 Number of predicted TMRs: 2
+OG5 outside 1 255
+OG5 TMhelix 256 273
+OG5 inside 274 319
+OG5 TMhelix 320 333
+OG5 outside 334 342
+//
+# OG6 Length: 457
+# OG6 Number of predicted TMRs: 8
+OG6 outside 1 29
+OG6 TMhelix 30 52
+OG6 inside 53 62
+OG6 TMhelix 63 81
+OG6 outside 82 158
+OG6 TMhelix 159 179
+OG6 inside 180 206
+OG6 TMhelix 207 225
+OG6 outside 226 242
+OG6 TMhelix 243 260
+OG6 inside 261 361
+OG6 TMhelix 362 382
+OG6 outside 383 405
+OG6 TMhelix 406 424
+OG6 inside 425 436
+OG6 TMhelix 437 453
+OG6 outside 454 457
+//
+# OG7 Length: 159
+# OG7 Number of predicted TMRs: 6
+OG7 signal 1 15
+OG7 periplasm 16 29
+OG7 Beta sheet 30 37
+OG7 outside 38 82
+OG7 Beta sheet 83 91
+OG7 periplasm 92 99
+OG7 Beta sheet 100 108
+OG7 outside 109 117
+OG7 Beta sheet 118 126
+OG7 periplasm 127 130
+OG7 Beta sheet 131 139
+OG7 outside 140 148
+OG7 Beta sheet 149 157
+OG7 periplasm 158 159
+//
+# OG8 Length: 302
+# OG8 Number of predicted TMRs: 0
+OG8 inside 1 302
+//
+# OG9 Length: 397
+# OG9 Number of predicted TMRs: 1
+OG9 outside 1 374
+OG9 TMhelix 375 395
+OG9 inside 396 397
+//
+# OG10 Length: 350
+# OG10 Number of predicted TMRs: 5
+OG10 inside 1 3
+OG10 TMhelix 4 19
+OG10 outside 20 172
+OG10 TMhelix 173 193
+OG10 inside 194 203
+OG10 TMhelix 204 224
+OG10 outside 225 257
+OG10 TMhelix 258 273
+OG10 inside 274 327
+OG10 TMhelix 328 348
+OG10 outside 349 350
+//
+# OG11 Length: 211
+# OG11 Number of predicted TMRs: 6
+OG11 outside 1 8
+OG11 TMhelix 9 29
+OG11 inside 30 39
+OG11 TMhelix 40 49
+OG11 outside 50 70
+OG11 TMhelix 71 86
+OG11 inside 87 100
+OG11 TMhelix 101 119
+OG11 outside 120 125
+OG11 TMhelix 126 143
+OG11 inside 144 150
+OG11 TMhelix 151 161
+OG11 outside 162 211
+//
+# OG12 Length: 306
+# OG12 Number of predicted TMRs: 0
+OG12 inside 1 306
+//
+# OG13 Length: 221
+# OG13 Number of predicted TMRs: 6
+OG13 outside 1 5
+OG13 TMhelix 6 24
+OG13 inside 25 50
+OG13 TMhelix 51 67
+OG13 outside 68 79
+OG13 TMhelix 80 89
+OG13 inside 90 139
+OG13 TMhelix 140 156
+OG13 outside 157 167
+OG13 TMhelix 168 185
+OG13 inside 186 194
+OG13 TMhelix 195 214
+OG13 outside 215 221
+//
+# OG14 Length: 159
+# OG14 Number of predicted TMRs: 2
+OG14 outside 1 36
+OG14 TMhelix 37 47
+OG14 inside 48 48
+OG14 TMhelix 49 58
+OG14 outside 59 159
+//
+# OG15 Length: 291
+# OG15 Number of predicted TMRs: 0
+OG15 signal 1 36
+OG15 outside 37 291
+//
+# OG16 Length: 476
+# OG16 Number of predicted TMRs: 0
+OG16 inside 1 476
+//
+# OG17 Length: 375
+# OG17 Number of predicted TMRs: 2
+OG17 inside 1 47
+OG17 TMhelix 48 61
+OG17 outside 62 76
+OG17 TMhelix 77 93
+OG17 inside 94 375
+//
+# OG18 Length: 192
+# OG18 Number of predicted TMRs: 0
+OG18 inside 1 192
+//
+# OG19 Length: 163
+# OG19 Number of predicted TMRs: 0
+OG19 outside 1 163
+//
+# OG20 Length: 188
+# OG20 Number of predicted TMRs: 5
+OG20 inside 1 8
+OG20 TMhelix 9 29
+OG20 outside 30 35
+OG20 TMhelix 36 56
+OG20 inside 57 61
+OG20 TMhelix 62 79
+OG20 outside 80 99
+OG20 TMhelix 100 119
+OG20 inside 120 150
+OG20 TMhelix 151 171
+OG20 outside 172 188
+//
+# OG21 Length: 231
+# OG21 Number of predicted TMRs: 7
+OG21 inside 1 6
+OG21 TMhelix 7 18
+OG21 outside 19 21
+OG21 TMhelix 22 39
+OG21 inside 40 48
+OG21 TMhelix 49 69
+OG21 outside 70 99
+OG21 TMhelix 100 123
+OG21 inside 124 140
+OG21 TMhelix 141 161
+OG21 outside 162 176
+OG21 TMhelix 177 190
+OG21 inside 191 201
+OG21 TMhelix 202 220
+OG21 outside 221 231
+//
+# OG22 Length: 455
+# OG22 Number of predicted TMRs: 7
+OG22 outside 1 14
+OG22 TMhelix 15 39
+OG22 inside 40 49
+OG22 TMhelix 50 70
+OG22 outside 71 88
+OG22 TMhelix 89 107
+OG22 inside 108 126
+OG22 TMhelix 127 144
+OG22 outside 145 168
+OG22 TMhelix 169 178
+OG22 inside 179 179
+OG22 TMhelix 180 189
+OG22 outside 190 206
+OG22 TMhelix 207 218
+OG22 inside 219 455
+//
+# OG23 Length: 178
+# OG23 Number of predicted TMRs: 0
+OG23 signal 1 59
+OG23 outside 60 178
+//
+# OG24 Length: 329
+# OG24 Number of predicted TMRs: 7
+OG24 inside 1 38
+OG24 TMhelix 39 53
+OG24 outside 54 97
+OG24 TMhelix 98 116
+OG24 inside 117 152
+OG24 TMhelix 153 167
+OG24 outside 168 179
+OG24 TMhelix 180 194
+OG24 inside 195 235
+OG24 TMhelix 236 256
+OG24 outside 257 274
+OG24 TMhelix 275 289
+OG24 inside 290 306
+OG24 TMhelix 307 324
+OG24 outside 325 329
+//
+# OG25 Length: 448
+# OG25 Number of predicted TMRs: 11
+OG25 outside 1 6
+OG25 TMhelix 7 20
+OG25 inside 21 31
+OG25 TMhelix 32 49
+OG25 outside 50 73
+OG25 TMhelix 74 94
+OG25 inside 95 116
+OG25 TMhelix 117 132
+OG25 outside 133 142
+OG25 TMhelix 143 158
+OG25 inside 159 164
+OG25 TMhelix 165 178
+OG25 outside 179 189
+OG25 TMhelix 190 205
+OG25 inside 206 216
+OG25 TMhelix 217 237
+OG25 outside 238 339
+OG25 TMhelix 340 360
+OG25 inside 361 377
+OG25 TMhelix 378 400
+OG25 outside 401 405
+OG25 TMhelix 406 423
+OG25 inside 424 448
+//
+# OG26 Length: 175
+# OG26 Number of predicted TMRs: 2
+OG26 outside 1 47
+OG26 TMhelix 48 67
+OG26 inside 68 101
+OG26 TMhelix 102 118
+OG26 outside 119 175
+//
+# OG27 Length: 159
+# OG27 Number of predicted TMRs: 4
+OG27 outside 1 9
+OG27 TMhelix 10 28
+OG27 inside 29 53
+OG27 TMhelix 54 74
+OG27 outside 75 89
+OG27 TMhelix 90 110
+OG27 inside 111 126
+OG27 TMhelix 127 147
+OG27 outside 148 159
+//
+# OG28 Length: 267
+# OG28 Number of predicted TMRs: 7
+OG28 outside 1 11
+OG28 TMhelix 12 33
+OG28 inside 34 63
+OG28 TMhelix 64 85
+OG28 outside 86 96
+OG28 TMhelix 97 117
+OG28 inside 118 128
+OG28 TMhelix 129 144
+OG28 outside 145 150
+OG28 TMhelix 151 171
+OG28 inside 172 183
+OG28 TMhelix 184 201
+OG28 outside 202 215
+OG28 TMhelix 216 228
+OG28 inside 229 267
+//
+# OG29 Length: 304
+# OG29 Number of predicted TMRs: 8
+OG29 outside 1 12
+OG29 TMhelix 13 33
+OG29 inside 34 72
+OG29 TMhelix 73 84
+OG29 outside 85 96
+OG29 TMhelix 97 113
+OG29 inside 114 149
+OG29 TMhelix 150 159
+OG29 outside 160 171
+OG29 TMhelix 172 192
+OG29 inside 193 231
+OG29 TMhelix 232 248
+OG29 outside 249 256
+OG29 TMhelix 257 273
+OG29 inside 274 282
+OG29 TMhelix 283 303
+OG29 outside 304 304
+//
+# OG30 Length: 170
+# OG30 Number of predicted TMRs: 4
+OG30 inside 1 7
+OG30 TMhelix 8 24
+OG30 outside 25 64
+OG30 TMhelix 65 85
+OG30 inside 86 97
+OG30 TMhelix 98 116
+OG30 outside 117 132
+OG30 TMhelix 133 153
+OG30 inside 154 170
+//
+# OG31 Length: 379
+# OG31 Number of predicted TMRs: 0
+OG31 outside 1 379
+//
+# OG32 Length: 305
+# OG32 Number of predicted TMRs: 0
+OG32 inside 1 305
+//
+# OG33 Length: 422
+# OG33 Number of predicted TMRs: 6
+OG33 inside 1 50
+OG33 TMhelix 51 64
+OG33 outside 65 101
+OG33 TMhelix 102 117
+OG33 inside 118 148
+OG33 TMhelix 149 169
+OG33 outside 170 193
+OG33 TMhelix 194 214
+OG33 inside 215 235
+OG33 TMhelix 236 249
+OG33 outside 250 281
+OG33 TMhelix 282 295
+OG33 inside 296 422
+//
+# OG34 Length: 369
+# OG34 Number of predicted TMRs: 1
+OG34 inside 1 183
+OG34 TMhelix 184 193
+OG34 outside 194 369
+//
+# OG35 Length: 447
+# OG35 Number of predicted TMRs: 10
+OG35 inside 1 6
+OG35 TMhelix 7 22
+OG35 outside 23 34
+OG35 TMhelix 35 45
+OG35 inside 46 111
+OG35 TMhelix 112 121
+OG35 outside 122 136
+OG35 TMhelix 137 152
+OG35 inside 153 223
+OG35 TMhelix 224 234
+OG35 outside 235 283
+OG35 TMhelix 284 304
+OG35 inside 305 314
+OG35 TMhelix 315 325
+OG35 outside 326 339
+OG35 TMhelix 340 353
+OG35 inside 354 380
+OG35 TMhelix 381 391
+OG35 outside 392 403
+OG35 TMhelix 404 422
+OG35 inside 423 447
+//
+# OG36 Length: 303
+# OG36 Number of predicted TMRs: 4
+OG36 inside 1 10
+OG36 TMhelix 11 28
+OG36 outside 29 169
+OG36 TMhelix 170 187
+OG36 inside 188 217
+OG36 TMhelix 218 238
+OG36 outside 239 269
+OG36 TMhelix 270 290
+OG36 inside 291 303
+//
+# OG37 Length: 444
+# OG37 Number of predicted TMRs: 3
+OG37 signal 1 11
+OG37 outside 12 76
+OG37 TMhelix 77 90
+OG37 inside 91 105
+OG37 TMhelix 106 126
+OG37 outside 127 182
+OG37 TMhelix 183 194
+OG37 inside 195 444
+//
+# OG38 Length: 239
+# OG38 Number of predicted TMRs: 0
+OG38 inside 1 239
+//
+# OG39 Length: 436
+# OG39 Number of predicted TMRs: 2
+OG39 signal 1 15
+OG39 outside 16 26
+OG39 TMhelix 27 47
+OG39 inside 48 55
+OG39 TMhelix 56 74
+OG39 outside 75 436
+//
+# OG40 Length: 224
+# OG40 Number of predicted TMRs: 0
+OG40 outside 1 224
+//
+# OG41 Length: 274
+# OG41 Number of predicted TMRs: 9
+OG41 outside 1 1
+OG41 TMhelix 2 18
+OG41 inside 19 29
+OG41 TMhelix 30 51
+OG41 outside 52 67
+OG41 TMhelix 68 82
+OG41 inside 83 96
+OG41 TMhelix 97 112
+OG41 outside 113 120
+OG41 TMhelix 121 139
+OG41 inside 140 159
+OG41 TMhelix 160 177
+OG41 outside 178 196
+OG41 TMhelix 197 217
+OG41 inside 218 226
+OG41 TMhelix 227 244
+OG41 outside 245 245
+OG41 TMhelix 246 261
+OG41 inside 262 274
+//
+# OG42 Length: 401
+# OG42 Number of predicted TMRs: 0
+OG42 outside 1 401
+//
+# OG43 Length: 317
+# OG43 Number of predicted TMRs: 8
+OG43 inside 1 7
+OG43 TMhelix 8 26
+OG43 outside 27 36
+OG43 TMhelix 37 53
+OG43 inside 54 68
+OG43 TMhelix 69 81
+OG43 outside 82 88
+OG43 TMhelix 89 109
+OG43 inside 110 126
+OG43 TMhelix 127 147
+OG43 outside 148 234
+OG43 TMhelix 235 244
+OG43 inside 245 245
+OG43 TMhelix 246 255
+OG43 outside 256 280
+OG43 TMhelix 281 303
+OG43 inside 304 317
+//
+# OG44 Length: 293
+# OG44 Number of predicted TMRs: 3
+OG44 inside 1 211
+OG44 TMhelix 212 221
+OG44 outside 222 222
+OG44 TMhelix 223 232
+OG44 inside 233 249
+OG44 TMhelix 250 271
+OG44 outside 272 293
+//
+# OG45 Length: 273
+# OG45 Number of predicted TMRs: 0
+OG45 signal 1 21
+OG45 outside 22 273
+//
+# OG46 Length: 265
+# OG46 Number of predicted TMRs: 0
+OG46 inside 1 265
+//
+# OG47 Length: 368
+# OG47 Number of predicted TMRs: 10
+OG47 inside 1 44
+OG47 TMhelix 45 63
+OG47 outside 64 81
+OG47 TMhelix 82 97
+OG47 inside 98 115
+OG47 TMhelix 116 132
+OG47 outside 133 143
+OG47 TMhelix 144 156
+OG47 inside 157 182
+OG47 TMhelix 183 202
+OG47 outside 203 231
+OG47 TMhelix 232 241
+OG47 inside 242 242
+OG47 TMhelix 243 252
+OG47 outside 253 264
+OG47 TMhelix 265 283
+OG47 inside 284 295
+OG47 TMhelix 296 309
+OG47 outside 310 332
+OG47 TMhelix 333 345
+OG47 inside 346 368
+//
+# OG48 Length: 206
+# OG48 Number of predicted TMRs: 2
+OG48 outside 1 20
+OG48 TMhelix 21 32
+OG48 inside 33 53
+OG48 TMhelix 54 66
+OG48 outside 67 206
+//
+# OG49 Length: 332
+# OG49 Number of predicted TMRs: 0
+OG49 inside 1 332
+//
+# OG50 Length: 151
+# OG50 Number of predicted TMRs: 3
+OG50 outside 1 1
+OG50 TMhelix 2 24
+OG50 inside 25 47
+OG50 TMhelix 48 75
+OG50 outside 76 132
+OG50 TMhelix 133 150
+OG50 inside 151 151
+//
+# OG51 Length: 349
+# OG51 Number of predicted TMRs: 0
+OG51 inside 1 349
+//
+# OG52 Length: 250
+# OG52 Number of predicted TMRs: 6
+OG52 inside 1 11
+OG52 TMhelix 12 21
+OG52 outside 22 47
+OG52 TMhelix 48 61
+OG52 inside 62 94
+OG52 TMhelix 95 107
+OG52 outside 108 141
+OG52 TMhelix 142 162
+OG52 inside 163 181
+OG52 TMhelix 182 197
+OG52 outside 198 217
+OG52 TMhelix 218 233
+OG52 inside 234 250
+//
+# OG53 Length: 173
+# OG53 Number of predicted TMRs: 4
+OG53 inside 1 6
+OG53 TMhelix 7 23
+OG53 outside 24 42
+OG53 TMhelix 43 58
+OG53 inside 59 72
+OG53 TMhelix 73 93
+OG53 outside 94 121
+OG53 TMhelix 122 136
+OG53 inside 137 173
+//
+# OG54 Length: 429
+# OG54 Number of predicted TMRs: 1
+OG54 signal 1 29
+OG54 outside 30 386
+OG54 TMhelix 387 405
+OG54 inside 406 429
+//
+# OG55 Length: 203
+# OG55 Number of predicted TMRs: 4
+OG55 inside 1 3
+OG55 TMhelix 4 24
+OG55 outside 25 94
+OG55 TMhelix 95 110
+OG55 inside 111 116
+OG55 TMhelix 117 127
+OG55 outside 128 169
+OG55 TMhelix 170 185
+OG55 inside 186 203
+//
+# OG56 Length: 230
+# OG56 Number of predicted TMRs: 0
+OG56 inside 1 230
+//
+# OG57 Length: 220
+# OG57 Number of predicted TMRs: 0
+OG57 inside 1 220
+//
+# OG58 Length: 450
+# OG58 Number of predicted TMRs: 9
+OG58 outside 1 1
+OG58 TMhelix 2 17
+OG58 inside 18 36
+OG58 TMhelix 37 47
+OG58 outside 48 60
+OG58 TMhelix 61 76
+OG58 inside 77 92
+OG58 TMhelix 93 106
+OG58 outside 107 230
+OG58 TMhelix 231 244
+OG58 inside 245 299
+OG58 TMhelix 300 309
+OG58 outside 310 313
+OG58 TMhelix 314 323
+OG58 inside 324 342
+OG58 TMhelix 343 361
+OG58 outside 362 413
+OG58 TMhelix 414 429
+OG58 inside 430 450
+//
+# OG59 Length: 420
+# OG59 Number of predicted TMRs: 10
+OG59 inside 1 19
+OG59 TMhelix 20 29
+OG59 outside 30 51
+OG59 TMhelix 52 70
+OG59 inside 71 97
+OG59 TMhelix 98 114
+OG59 outside 115 129
+OG59 TMhelix 130 150
+OG59 inside 151 171
+OG59 TMhelix 172 187
+OG59 outside 188 210
+OG59 TMhelix 211 224
+OG59 inside 225 237
+OG59 TMhelix 238 256
+OG59 outside 257 309
+OG59 TMhelix 310 319
+OG59 inside 320 320
+OG59 TMhelix 321 330
+OG59 outside 331 389
+OG59 TMhelix 390 407
+OG59 inside 408 420
+//
+# OG60 Length: 210
+# OG60 Number of predicted TMRs: 5
+OG60 outside 1 3
+OG60 TMhelix 4 20
+OG60 inside 21 41
+OG60 TMhelix 42 54
+OG60 outside 55 68
+OG60 TMhelix 69 87
+OG60 inside 88 141
+OG60 TMhelix 142 157
+OG60 outside 158 178
+OG60 TMhelix 179 199
+OG60 inside 200 210
+//
+# OG61 Length: 153
+# OG61 Number of predicted TMRs: 0
+OG61 inside 1 153
+//
+# OG62 Length: 303
+# OG62 Number of predicted TMRs: 0
+OG62 outside 1 303
+//
+# OG63 Length: 181
+# OG63 Number of predicted TMRs: 2
+OG63 inside 1 27
+OG63 TMhelix 28 46
+OG63 outside 47 50
+OG63 TMhelix 51 67
+OG63 inside 68 181
+//
+# OG64 Length: 293
+# OG64 Number of predicted TMRs: 8
+OG64 outside 1 9
+OG64 TMhelix 10 21
+OG64 inside 22 38
+OG64 TMhelix 39 59
+OG64 outside 60 68
+OG64 TMhelix 69 93
+OG64 inside 94 129
+OG64 TMhelix 130 145
+OG64 outside 146 164
+OG64 TMhelix 165 179
+OG64 inside 180 204
+OG64 TMhelix 205 228
+OG64 outside 229 235
+OG64 TMhelix 236 256
+OG64 inside 257 265
+OG64 TMhelix 266 282
+OG64 outside 283 293
+//
+# OG65 Length: 157
+# OG65 Number of predicted TMRs: 4
+OG65 inside 1 23
+OG65 TMhelix 24 40
+OG65 outside 41 51
+OG65 TMhelix 52 61
+OG65 inside 62 92
+OG65 TMhelix 93 110
+OG65 outside 111 118
+OG65 TMhelix 119 130
+OG65 inside 131 157
+//
+# OG66 Length: 248
+# OG66 Number of predicted TMRs: 6
+OG66 outside 1 5
+OG66 TMhelix 6 26
+OG66 inside 27 42
+OG66 TMhelix 43 61
+OG66 outside 62 71
+OG66 TMhelix 72 85
+OG66 inside 86 151
+OG66 TMhelix 152 167
+OG66 outside 168 188
+OG66 TMhelix 189 200
+OG66 inside 201 222
+OG66 TMhelix 223 241
+OG66 outside 242 248
+//
+# OG67 Length: 368
+# OG67 Number of predicted TMRs: 3
+OG67 inside 1 138
+OG67 TMhelix 139 148
+OG67 outside 149 167
+OG67 TMhelix 168 182
+OG67 inside 183 345
+OG67 TMhelix 346 362
+OG67 outside 363 368
+//
+# OG68 Length: 305
+# OG68 Number of predicted TMRs: 0
+OG68 outside 1 305
+//
+# OG69 Length: 310
+# OG69 Number of predicted TMRs: 0
+OG69 inside 1 310
+//
+# OG70 Length: 218
+# OG70 Number of predicted TMRs: 0
+OG70 outside 1 218
+//
+# OG71 Length: 304
+# OG71 Number of predicted TMRs: 9
+OG71 outside 1 10
+OG71 TMhelix 11 31
+OG71 inside 32 54
+OG71 TMhelix 55 77
+OG71 outside 78 91
+OG71 TMhelix 92 112
+OG71 inside 113 157
+OG71 TMhelix 158 167
+OG71 outside 168 168
+OG71 TMhelix 169 178
+OG71 inside 179 182
+OG71 TMhelix 183 203
+OG71 outside 204 222
+OG71 TMhelix 223 243
+OG71 inside 244 248
+OG71 TMhelix 249 269
+OG71 outside 270 279
+OG71 TMhelix 280 300
+OG71 inside 301 304
+//
+# OG72 Length: 223
+# OG72 Number of predicted TMRs: 5
+OG72 outside 1 20
+OG72 TMhelix 21 41
+OG72 inside 42 52
+OG72 TMhelix 53 73
+OG72 outside 74 130
+OG72 TMhelix 131 151
+OG72 inside 152 176
+OG72 TMhelix 177 197
+OG72 outside 198 198
+OG72 TMhelix 199 209
+OG72 inside 210 223
+//
+# OG73 Length: 222
+# OG73 Number of predicted TMRs: 5
+OG73 inside 1 14
+OG73 TMhelix 15 33
+OG73 outside 34 49
+OG73 TMhelix 50 70
+OG73 inside 71 118
+OG73 TMhelix 119 139
+OG73 outside 140 162
+OG73 TMhelix 163 172
+OG73 inside 173 205
+OG73 TMhelix 206 221
+OG73 outside 222 222
+//
+# OG74 Length: 296
+# OG74 Number of predicted TMRs: 5
+OG74 inside 1 14
+OG74 TMhelix 15 32
+OG74 outside 33 50
+OG74 TMhelix 51 67
+OG74 inside 68 127
+OG74 TMhelix 128 138
+OG74 outside 139 175
+OG74 TMhelix 176 192
+OG74 inside 193 272
+OG74 TMhelix 273 293
+OG74 outside 294 296
+//
+# OG75 Length: 297
+# OG75 Number of predicted TMRs: 0
+OG75 inside 1 297
+//
+# OG76 Length: 485
+# OG76 Number of predicted TMRs: 0
+OG76 inside 1 485
+//
+# OG77 Length: 469
+# OG77 Number of predicted TMRs: 6
+OG77 outside 1 14
+OG77 TMhelix 15 27
+OG77 inside 28 41
+OG77 TMhelix 42 62
+OG77 outside 63 74
+OG77 TMhelix 75 90
+OG77 inside 91 99
+OG77 TMhelix 100 115
+OG77 outside 116 121
+OG77 TMhelix 122 131
+OG77 inside 132 438
+OG77 TMhelix 439 455
+OG77 outside 456 469
+//
+# OG78 Length: 460
+# OG78 Number of predicted TMRs: 9
+OG78 signal 1 20
+OG78 outside 21 33
+OG78 TMhelix 34 52
+OG78 inside 53 75
+OG78 TMhelix 76 100
+OG78 outside 101 128
+OG78 TMhelix 129 152
+OG78 inside 153 184
+OG78 TMhelix 185 198
+OG78 outside 199 217
+OG78 TMhelix 218 238
+OG78 inside 239 253
+OG78 TMhelix 254 269
+OG78 outside 270 301
+OG78 TMhelix 302 322
+OG78 inside 323 384
+OG78 TMhelix 385 400
+OG78 outside 401 421
+OG78 TMhelix 422 444
+OG78 inside 445 460

@@ -12,27 +12,29 @@ from generate_utils import mask_for_de_novo, mask_for_scaffold
 from MeMDLM.src.diffusion.diffusion import Diffusion
 from MeMDLM.src.guidance.guidance import SolubilityGuider
 
-data_path = "/workspace/sg666/MeMDLM/MeMDLM/data/membrane/test.csv"
+
+cfg_pth = '/workspace/sg666/MeMDLM/MeMDLM/configs'
+
+
+def _print_og(og_sol, og_ppl, og_seq):
+    print(f"OG solubility: {og_sol} | OG PPL: {og_ppl} | OG Sequence: {og_seq}")
+
+def _print_optim(optim_sol, optim_ppl, optim_seq):
+    print(f'Optim solubility: {optim_sol} | Optim PPL: {optim_ppl} | Optim Seq: {optim_seq[5:-5].replace(" ", "")}')
 
 
 @torch.no_grad()
-def generate_sequence(sequence_length: int, tokenizer, mdlm: Diffusion):
-    global masked_sequence
-    masked_sequence = mask_for_de_novo(sequence_length)
-    inputs = tokenizer(masked_sequence, return_tensors="pt").to(mdlm.device)
+def generate_sequence(prior: str, tokenizer, mdlm: Diffusion):
+    inputs = tokenizer(prior, return_tensors="pt").to(mdlm.device)
     ids = mdlm._sample(x_input=inputs) # using sample, change config.sampling.steps to determine robustness
     generated_sequence = tokenizer.decode(ids.squeeze())[5:-5].replace(" ", "") # bos/eos tokens & spaces between residues
 
-    return generated_sequence
+    return generated_sequence, inputs
 
-cfg_pth = '/workspace/sg666/MeMDLM/MeMDLM/configs'
 @hydra.main(version_base=None, config_path=cfg_pth, config_name='config')
-def main(config, optimize: bool=True):
-    path = "/workspace/sg666/MeMDLM"
-
+def main(config):
     tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t30_150M_UR50D")
-
-    device = torch.device(f"cuda:{0}" if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f"cuda:{6}" if torch.cuda.is_available() else 'cpu')
 
     mdlm = Diffusion.load_from_checkpoint(
         config.eval.checkpoint_path,
@@ -41,59 +43,74 @@ def main(config, optimize: bool=True):
     ).eval().to(device)
 
     guidance = SolubilityGuider(config, device, mdlm) # Pass Diffusion model to prevent loading twice
-    
-    with open(data_path, "r") as f:
-        sequences = f.readlines()[1:]
 
     print("loaded models...")
 
     # Get 100 random sequence lengths to generate
-    #sequence_lengths = [random.randint(50, 500) for _ in range(700)] 
+    sequence_lengths = [random.randint(150, 500) for _ in range(100)]
 
     generation_results = []
-    for sequence in tqdm(sequences, desc=f"Generating sequences: "):
-        og_sequence = mask_for_scaffold(sequence, "uppercase") # SOLUBLE IS LOWERCASE!!!!!!!
-        tokens = tokenizer(og_sequence, return_tensors='pt')
-        
-        # calculate og solubility
-        nlower = 0
-        for s in sequence: 
-            if s.islower(): nlower+=1
-        
-        raw_solub_frac = nlower / len(sequence)
-        og_tokens = tokenizer(sequence, return_tensors='pt')
-        og_solubility_preds = guidance.embed_and_predict_solubility(og_tokens["input_ids"], og_tokens["attention_mask"])["solubility_predictions"]
-        og_solubility = guidance.compute_frac_soluble(og_tokens["input_ids"], og_solubility_preds)
+    for length in tqdm(sequence_lengths, desc=f"Generating sequences: "):
+        seq_res = []
 
-        sys.stdout.flush()
-        if optimize:
-            optimized_sequence, sequence_str = guidance.sample_guidance(x_0 = tokens, guidance=True)
-            no_guide_seq, no_guide_str = guidance.sample_guidance(x_0 = tokens, guidance=False)
-        
-        # og_ppl = mdlm.compute_masked_perplexity([og_sequence], masked_sequence)
-        # print("size: ", optimized_sequence.size())
-        # optimized_ppl = mdlm.compute_masked_perplexity([sequence_str], og_sequence)
-        # optimized_ppl = round(optimized_ppl, 4)
-        
-        print("sequence: ", sequence)
-        print("optimized: ", sequence_str.replace(" ", ""))
-        
-        tokens = tokenizer(sequence_str, return_tensors="pt")
-        solubility_preds = guidance.embed_and_predict_solubility(tokens["input_ids"], tokens["attention_mask"])["solubility_predictions"]
-        optimized_solubility = guidance.compute_frac_soluble(tokens["input_ids"], solubility_preds)
-        
-        no_tokens = tokenizer(no_guide_str, return_tensors="pt")
-        no_solubility_preds = guidance.embed_and_predict_solubility(no_tokens["input_ids"], no_tokens["attention_mask"])["solubility_predictions"]
-        no_optimized_solubility = guidance.compute_frac_soluble(no_tokens["input_ids"], no_solubility_preds)
+        # Generate a prior of all masked tokens
+        masked_seq = mask_for_de_novo(length)
 
-        generation_results.append([og_sequence, optimized_sequence, 123])
+        # Unconditionally generate a sequence and calculate its perplexity and solubility
+        og_seq, og_tokens = generate_sequence(masked_seq, tokenizer, mdlm)
+        og_solubility_preds = guidance.embed_and_predict_solubility(
+            input_ids=og_tokens['input_ids'],
+            attention_masks=og_tokens['attention_mask']
+        )['solubility_predictions']
+        og_solubility = round(guidance.compute_frac_soluble(og_tokens["input_ids"], og_solubility_preds), 4)
+        og_ppl = round(mdlm.compute_masked_perplexity([og_seq], masked_seq), 4)
 
-        # print(f"original ppl: {og_ppl} | original solubility: {og_solubility} | length: {seq_length} | generated sequence: {og_sequence}")
-        print(f"og solubility: {og_solubility} | raw solubility: {raw_solub_frac} | no guide solubility: {no_optimized_solubility} | optimized solubility: {optimized_solubility} | solubility diff: {optimized_solubility - og_solubility}")
-        sys.stdout.flush()
+        seq_res.append(og_seq)
+        seq_res.append(og_ppl)
+        seq_res.append(og_solubility)
+        _print_og(og_solubility, og_ppl, og_seq)
 
-    # df = pd.DataFrame(generation_results, columns=['OG Sequence', 'OG PPL', 'Optimized Sequence', 'Optimized PPL'])
-    # df.to_csv(path + f'/benchmarks/de_novo_generation_results.csv', index=False)
+        # Do guidance steps if original sequence is insoluble
+        if og_solubility < config.value.guidance.sequence_thresh:
+            try:
+                optim_tokens, optim_seq = guidance.sample_guidance(x_0=og_tokens, guidance=True)
+                optim_solubility_preds = guidance.embed_and_predict_solubility(
+                    input_ids=optim_tokens,
+                    attention_masks=torch.ones_like(optim_tokens)
+                )["solubility_predictions"]
+                optim_solubility = round(guidance.compute_frac_soluble(optim_tokens, optim_solubility_preds), 4)
+                
+                try:
+                    optim_ppl = round(mdlm.compute_masked_perplexity([optim_seq], masked_seq), 4)
+                except:
+                    optim_seq = ""
+                    optim_solubility = 0
+                    optim_ppl = 0
+
+                seq_res.append(optim_seq)
+                seq_res.append(optim_ppl)
+                seq_res.append(optim_solubility)
+                _print_optim(optim_solubility, optim_ppl, optim_seq)
+                print("\n")
+            except:
+                seq_res.append("")
+                seq_res.append(0)
+                seq_res.append(0)
+                print("No optimization required.")
+                print("\n")
+                continue
+
+        else:
+            seq_res.append("")
+            seq_res.append(0)
+            seq_res.append(0)
+            print("No optimization required.")
+            print("\n")
+
+        generation_results.append(seq_res)
+
+    df = pd.DataFrame(generation_results, columns=['OG Sequence', 'OG PPL', 'OG Solubility', 'Optimized Sequence', 'Optimized PPL', 'Optimized Solubility'])
+    df.to_csv('/workspace/sg666/MeMDLM/MeMDLM/benchmarks/results/de_novo.csv', index=False)
 
     
 if __name__ == "__main__":

@@ -874,39 +874,28 @@ class Diffusion(L.LightningModule):
     for sequence in sequences:
         # Tokenize the sequence
         input_ids = self.tokenizer(masked, return_tensors="pt").input_ids.to(self.device)
-        gt_ids = self.tokenizer(sequence[5:-5].upper(), return_tensors="pt").input_ids.to(self.device)
-
-        # print(f'comp gen ppl input ids: {input_ids.shape}')
-        # print(f'comp gen ppl gt ids: {gt_ids.shape}')
+        gt_ids = self.tokenizer(sequence.upper(), return_tensors="pt").input_ids.to(self.device)
 
         # Forward pass through the ESM model
-        attention_mask = torch.ones_like(input_ids)
         if self.config.mode in ['train', 'ppl_eval']:
-          outputs = self.backbone.model.forward(input_ids=input_ids, attention_mask=attention_mask)
+          outputs = self.backbone.model.forward(input_ids=input_ids, attention_mask=torch.ones_like(input_ids))
         elif self.config.mode == "sample_eval":
           outputs = self.backbone.model.forward(input_ids)
-        logits = outputs[0] # B, L, V
-        # print(sequence, gt_ids)
-        # print(outputs[0].size())
+        
+        # Reshape logits and true tokens (disregard batch as we handle 1 sequence at at time)
+        logits = outputs.logits.squeeze(0)  # B, L, V --> L, V 
+        gt_ids = gt_ids.where(input_ids==32, torch.full_like(input_ids, -100)).squeeze(0) # L
 
-        # Compute loss
-        # shift_logits = logits[:, :-1, :].contiguous() # remove eos
-        # shift_labels = input_ids[:, 1:].contiguous()
-        # print(masked)
-        # print(gt_ids.where(input_ids==32, torch.full_like(input_ids, -100)).view(-1))
-        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), 
-                              gt_ids.where(input_ids==32, torch.full_like(input_ids, -100)).view(-1), 
-                              reduction='sum')
-
+        # Accumulate CE loss and tokens
+        loss = F.cross_entropy(logits, gt_ids, reduction='sum')
         total_nll += loss.item()
-        #total_tokens += (input_ids != self.tokenizer.pad_token_id).sum().item() - 1  # -1 for the first token
         total_tokens += input_ids.ne(self.tokenizer.pad_token_id).sum().item() # count in bos and eos
-    # Compute pseudo-perplexity
-    # print(total_nll, ",;,", total_tokens)
+
+    # Compute generative perplexity
     pseudo_perplexity = torch.exp(torch.tensor(total_nll / total_tokens))
     self.gen_ppl_metric.update(pseudo_perplexity)
-    
     return pseudo_perplexity.item()
+
 
   @torch.no_grad()
   def compute_generative_perplexity(
