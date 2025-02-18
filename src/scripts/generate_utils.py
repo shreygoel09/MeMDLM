@@ -2,7 +2,7 @@ import torch
 import math
 import sys
 import pandas as pd
-from esm_utils import get_latents
+from MeMDLM.src.scripts.esm_utils import get_latents
 from transformers import AutoModelForMaskedLM, AutoModel, AutoTokenizer
 
 
@@ -10,11 +10,11 @@ def mask_for_de_novo(sequence_length):
     return "<mask>" * sequence_length
 
 
-def mask_for_scaffold(sequence, generate_type):
+def mask_for_scaffold(sequence, generate_type, mask_key="<mask>"):
     if generate_type == "uppercase":
-        sequence = ''.join(["<mask>" if residue.isupper() else residue.upper() for residue in sequence])
+        sequence = ''.join([mask_key if residue.isupper() else residue.upper() for residue in sequence])
     elif generate_type == "lowercase":
-        sequence = ''.join(["<mask>" if residue.islower() else residue for residue in sequence])   
+        sequence = ''.join([mask_key if residue.islower() else residue for residue in sequence])   
     return sequence
 
 
