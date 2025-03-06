@@ -35,26 +35,36 @@ class Infiller:
     def ppl(self, sequence, mask_idxs: list):
         return calculate_perplexity(self.esm_model, self.tokenizer, sequence, mask_idxs)
 
-    def infill(self, sequence: str, mask_indices: list, guidance: bool):
+    def infill(self, sequence: str, mask_indices: list, conserved_idx: list, infill: bool, guidance: bool):
         tokens = self._encode_sequence(sequence.upper())
-        
+        og_tokens = tokens['input_ids'].clone()
+        tokens['input_ids'] = tokens['input_ids'][:, 1:-1] # 1 x 231
+        tokens['attention_mask'] = tokens['attention_mask'][:, 1:-1]
+
         # Replace normal input id with mask token id
-        mask_tensor = torch.tensor(mask_indices, dtype=torch.long)
-        print(mask_tensor)
-        #input_ids[mask_tensor] = self.tokenizer.mask_token_id
-        tokens['input_ids'][0, mask_tensor] = self.tokenizer.mask_token_id
+        id_mask = torch.tensor(mask_indices, dtype=torch.long)
+        tokens['input_ids'][0, id_mask] = self.tokenizer.mask_token_id
 
-        print(tokens['input_ids'])
-
-        infilled_seq, _ = self.generate_sequence(tokens)
-        infilled_ppl = self.ppl(infilled_seq, mask_indices)
+        #infilled_seq, _ = self.generate_sequence(tokens)
+        #infilled_ppl = self.ppl(infilled_seq, mask_indices)
 
         if guidance:
-            _, optim_seq =self.guider.sample_guidance(x_0=tokens, guidance=True)
+            _, optim_seq =self.guider.sample_guidance(x_0=tokens, og_tokens=og_tokens,
+                                                      guidance=True, infill=infill,
+                                                      conserved_indices=conserved_idx)
+            print(optim_seq)
+            print(sequence.upper())
             optim_ppl = self.ppl(optim_seq, mask_indices)
-            return optim_seq, optim_ppl
+        
+        # print(conserved_idx)
+        # bads = []
+        # for i in conserved_idx:
+        #     if sequence[i] != optim_seq[i]:
+        #         bads.append(i)
+        # print(f'mismatches for seq {sequence}')
+        # print(bads, '\n')
 
-        return infilled_seq, infilled_ppl
+        return optim_seq, optim_ppl
 
 
 

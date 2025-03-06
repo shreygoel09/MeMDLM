@@ -137,9 +137,9 @@ class SolubilityGuider:
         
         return delta
     
-    def optimized_sampling(self, og_logits, og_hidden, attention_mask, n_steps, plot_saliency=None):
+    def optimized_sampling(self, og_logits, og_hidden, attention_mask, n_steps, plot_saliency=None, infill=None, conserved_idxs=None):
         """Main entry point to optimize a generated sequence."""
-        neta = self.config.value.guidance.step_size
+        eta = self.config.value.guidance.step_size
 
         # Calculate initial solubility predictions
         batch = {"embeddings": og_hidden.squeeze(), "attention_mask": attention_mask.squeeze()}
@@ -147,7 +147,7 @@ class SolubilityGuider:
         
         delta_saliency = nn.Parameter(torch.zeros_like(og_hidden), requires_grad=True)
         delta = nn.Parameter(torch.zeros_like(og_hidden), requires_grad=True)
-        optimizer = torch.optim.Adagrad([delta], lr=neta)
+        optimizer = torch.optim.Adagrad([delta], lr=eta)
         optimizer.zero_grad()
         
         # Continuous optimization until solubility density threshold is reached
@@ -156,10 +156,20 @@ class SolubilityGuider:
 
                 # Compute saliency map and edit positions using updated hidden states
                 saliency_map = self.compute_saliency(og_hidden + delta.data, attention_mask, delta_saliency)
+                
+                # Break if plotting saliency for benchmarking purposes
                 if plot_saliency:
                     if n == n_steps-1:
                         return saliency_map
+                
+                # One-hot mask that encodes the saliency-selected edit positions
                 mask = self.determine_edit_positions(saliency_map, solubility_preds)
+
+                # # During infilling, we consearve the residues present in the orignial scaffold
+                # if infill and conserved_idxs is not None:
+                #     mask = mask.squeeze(-1)
+                #     mask[conserved_idxs] = 0
+                #     mask = mask.unsqueeze(-1)
 
                 # Optimize and generate the new sequence
                 delta = self.update_logits(
@@ -172,12 +182,15 @@ class SolubilityGuider:
                 )
 
         # Final hidden state update
-        h_new = og_hidden + delta.data 
+        # embedding_mask = torch.ones_like(og_hidden)
+        # embedding_mask[:, conserved_idxs, :] = 0
+        # h_new = og_hidden + (embedding_mask * delta.data)
+        h_new = og_hidden + delta.data
         new_logits, _new_sol = self.compute_logits_value_from_hidden(h_new, attention_mask)
         
         return new_logits
     
-    def sample_guidance(self, x_0 = None, num_steps=None, eps=1e-5, bsz=1, guidance=True):
+    def sample_guidance(self, x_0 = None, num_steps=None, eps=1e-5, bsz=1, guidance=True, infill=None, og_tokens=None, conserved_indices=None):
         if num_steps is None:
             num_steps = self.config.sampling.steps
         
@@ -188,16 +201,19 @@ class SolubilityGuider:
         else: # Generate a prior of just mask tokens
             x = self.diffusion._sample_prior(bsz, self.config.model.length).to(self.device)
             attention_mask = torch.ones_like(x, device=self.device)
-        timesteps = torch.linspace(1, eps, num_steps + 1, device=self.device)
         
+        timesteps = torch.linspace(1, eps, num_steps + 1, device=self.device)
         dt = (1 - eps) / num_steps
+
+        print(x)
         
         for i in trange(num_steps):
             t = timesteps[i] * torch.ones(x.shape[0], 1, device=self.device)
             logits, hidden_states = self.diffusion.backbone.forward_hidden(x, attention_mask)
             if guidance:
                 logits = self.optimized_sampling(logits, hidden_states, attention_mask,
-                                                 n_steps=self.config.value.guidance.n_steps)
+                                                 n_steps=self.config.value.guidance.n_steps,
+                                                 infill=infill, conserved_idxs=conserved_indices)
             logits_wrapper = Namespace() # Workaround for SUBS as it accesses logits.logits
             logits_wrapper.logits = logits
             p_x0 = self.diffusion._subs_parameterization(logits=logits_wrapper, xt=x)
@@ -211,8 +227,18 @@ class SolubilityGuider:
             
             copy_flag = (x != self.diffusion.mask_index).to(x.dtype)
             x = (copy_flag * x + (1 - copy_flag) * _x).squeeze(0)
-
-        generated_sequence = self.tokenizer.decode(x.squeeze())[5:-5].replace(" ", "")
         
-        return x, generated_sequence
+        optim_tokens = x
+
+        # og_tokens, optim_tokens = og_tokens.squeeze()[1:-1], optim_tokens.squeeze()
+    
+        # # Conserve the tokens in the original scaffold
+        # if infill and conserved_indices is not None:
+        #     token_mask = torch.ones_like(og_tokens)
+        #     token_mask[conserved_indices] = 0
+        #     optim_tokens = (optim_tokens * token_mask) + (og_tokens * (1 - token_mask))
+
+        generated_seq = self.tokenizer.decode(optim_tokens.squeeze()).replace(" ", "")
+
+        return optim_tokens, generated_seq
             
