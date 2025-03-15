@@ -1,0 +1,57 @@
+Testing: |          | 0/? [00:00<?, ?it/s]Testing:   0%|          | 0/49 [00:00<?, ?it/s]Testing DataLoader 0:   0%|          | 0/49 [00:00<?, ?it/s]labels torch.Size([6958])
+Testing DataLoader 0:   2%|▏         | 1/49 [00:00<00:22,  2.18it/s]labels torch.Size([6131])
+Testing DataLoader 0:   4%|▍         | 2/49 [00:00<00:11,  4.25it/s]labels torch.Size([3561])
+Testing DataLoader 0:   6%|▌         | 3/49 [00:00<00:08,  5.55it/s]labels torch.Size([2514])
+Testing DataLoader 0:   8%|▊         | 4/49 [00:01<00:22,  2.04it/s]labels torch.Size([2050])
+Testing DataLoader 0:  10%|█         | 5/49 [00:02<00:17,  2.47it/s]labels torch.Size([1677])
+Testing DataLoader 0:  12%|█▏        | 6/49 [00:02<00:14,  2.88it/s]labels torch.Size([5656])
+Testing DataLoader 0:  14%|█▍        | 7/49 [00:02<00:12,  3.34it/s]labels torch.Size([3682])
+Testing DataLoader 0:  16%|█▋        | 8/49 [00:02<00:10,  3.73it/s]labels torch.Size([5513])
+Testing DataLoader 0:  18%|█▊        | 9/49 [02:18<10:15,  0.06it/s]labels torch.Size([10982])
+Testing DataLoader 0:  20%|██        | 10/49 [02:19<09:04,  0.07it/s]labels torch.Size([3057])
+Testing DataLoader 0:  22%|██▏       | 11/49 [02:19<08:02,  0.08it/s]labels torch.Size([5061])
+Testing DataLoader 0:  24%|██▍       | 12/49 [02:24<07:26,  0.08it/s]labels torch.Size([3272])
+Testing DataLoader 0:  27%|██▋       | 13/49 [02:24<06:41,  0.09it/s]labels torch.Size([3485])
+Testing DataLoader 0:  29%|██▊       | 14/49 [02:24<06:02,  0.10it/s]labels torch.Size([6041])
+Testing DataLoader 0:  31%|███       | 15/49 [02:24<05:28,  0.10it/s]labels torch.Size([2632])
+Testing DataLoader 0:  33%|███▎      | 16/49 [02:24<04:58,  0.11it/s]labels torch.Size([7010])
+Testing DataLoader 0:  35%|███▍      | 17/49 [04:41<08:49,  0.06it/s]labels torch.Size([8925])
+Testing DataLoader 0:  37%|███▋      | 18/49 [04:43<08:07,  0.06it/s]labels torch.Size([6234])
+Testing DataLoader 0:  39%|███▉      | 19/49 [04:43<07:27,  0.07it/s]labels torch.Size([7201])
+Testing DataLoader 0:  41%|████      | 20/49 [04:50<07:01,  0.07it/s]labels torch.Size([5075])
+Testing DataLoader 0:  43%|████▎     | 21/49 [04:50<06:27,  0.07it/s]labels torch.Size([4935])
+Testing DataLoader 0:  45%|████▍     | 22/49 [04:50<05:56,  0.08it/s]labels torch.Size([4412])
+Testing DataLoader 0:  47%|████▋     | 23/49 [04:50<05:28,  0.08it/s]labels torch.Size([4430])
+Testing DataLoader 0:  49%|████▉     | 24/49 [04:50<05:03,  0.08it/s]labels torch.Size([3104])
+Testing DataLoader 0:  51%|█████     | 25/49 [07:04<06:47,  0.06it/s]labels torch.Size([9195])
+Testing DataLoader 0:  53%|█████▎    | 26/49 [07:05<06:16,  0.06it/s]labels torch.Size([920])
+Testing DataLoader 0:  55%|█████▌    | 27/49 [07:05<05:46,  0.06it/s]labels torch.Size([2953])
+Testing DataLoader 0:  57%|█████▋    | 28/49 [07:18<05:28,  0.06it/s]labels torch.Size([6091])
+Testing DataLoader 0:  59%|█████▉    | 29/49 [07:18<05:02,  0.07it/s]labels torch.Size([8811])
+Testing DataLoader 0:  61%|██████    | 30/49 [07:18<04:37,  0.07it/s]labels torch.Size([1466])
+Testing DataLoader 0:  63%|██████▎   | 31/49 [07:18<04:14,  0.07it/s]labels torch.Size([4082])
+Testing DataLoader 0:  65%|██████▌   | 32/49 [07:18<03:53,  0.07it/s]labels torch.Size([3935])
+Testing DataLoader 0:  67%|██████▋   | 33/49 [09:25<04:34,  0.06it/s]labels torch.Size([6913])
+Testing DataLoader 0:  69%|██████▉   | 34/49 [09:25<04:09,  0.06it/s]labels torch.Size([3956])
+Testing DataLoader 0:  71%|███████▏  | 35/49 [09:26<03:46,  0.06it/s]labels torch.Size([4507])
+Testing DataLoader 0:  73%|███████▎  | 36/49 [09:48<03:32,  0.06it/s]labels torch.Size([5495])
+Testing DataLoader 0:  76%|███████▌  | 37/49 [09:48<03:10,  0.06it/s]labels torch.Size([7068])
+Testing DataLoader 0:  78%|███████▊  | 38/49 [09:48<02:50,  0.06it/s]labels torch.Size([2140])
+Testing DataLoader 0:  80%|███████▉  | 39/49 [09:48<02:30,  0.07it/s]labels torch.Size([4497])
+Testing DataLoader 0:  82%|████████▏ | 40/49 [09:48<02:12,  0.07it/s]labels torch.Size([3156])
+Testing DataLoader 0:  84%|████████▎ | 41/49 [11:47<02:18,  0.06it/s]labels torch.Size([2809])
+Testing DataLoader 0:  86%|████████▌ | 42/49 [11:47<01:57,  0.06it/s]labels torch.Size([3396])
+Testing DataLoader 0:  88%|████████▊ | 43/49 [11:47<01:38,  0.06it/s]labels torch.Size([2850])
+Testing DataLoader 0:  90%|████████▉ | 44/49 [12:17<01:23,  0.06it/s]labels torch.Size([4810])
+Testing DataLoader 0:  92%|█████████▏| 45/49 [12:17<01:05,  0.06it/s]labels torch.Size([5756])
+Testing DataLoader 0:  94%|█████████▍| 46/49 [12:17<00:48,  0.06it/s]labels torch.Size([2700])
+Testing DataLoader 0:  96%|█████████▌| 47/49 [12:17<00:31,  0.06it/s]labels torch.Size([6696])
+Testing DataLoader 0:  98%|█████████▊| 48/49 [12:17<00:15,  0.07it/s]labels torch.Size([712])
+Testing DataLoader 0: 100%|██████████| 49/49 [12:17<00:00,  0.07it/s]Testing DataLoader 0: 100%|██████████| 49/49 [12:17<00:00,  0.07it/s]
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃        Test metric        ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│        test/AUROC         │     0.925316572189331     │
+│       test/accuracy       │    0.8536756038665771     │
+│         test/loss         │    0.33906450867652893    │
+└───────────────────────────┴───────────────────────────┘

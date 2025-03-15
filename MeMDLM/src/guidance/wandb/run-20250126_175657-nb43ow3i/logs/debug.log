@@ -1,0 +1,32 @@
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_setup.py:_flush():68] Configure stats pid to 882614
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_setup.py:_flush():68] Loading settings from /root/.config/wandb/settings
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_setup.py:_flush():68] Loading settings from /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/settings
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_setup.py:_flush():68] Loading settings from environment variables: {'_require_service': 'True'}
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_setup.py:_flush():68] Inferring run settings from compute environment: {'program_relpath': 'MeMDLM/MeMDLM/src/guidance/main.py', 'program': '/workspace/sg666/MeMDLM/MeMDLM/src/guidance/main.py'}
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_init.py:_log_setup():476] Logging user logs to /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250126_175657-nb43ow3i/logs/debug.log
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_init.py:_log_setup():477] Logging internal logs to /workspace/sg666/MeMDLM/MeMDLM/src/guidance/wandb/run-20250126_175657-nb43ow3i/logs/debug-internal.log
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_init.py:init():516] calling init triggers
+2025-01-26 17:56:57,127 INFO    MainThread:882614 [wandb_init.py:init():519] wandb.init called with sweep_config: {}
+config: {}
+2025-01-26 17:56:57,128 INFO    MainThread:882614 [wandb_init.py:init():569] starting backend
+2025-01-26 17:56:57,128 INFO    MainThread:882614 [wandb_init.py:init():573] setting up manager
+2025-01-26 17:56:57,136 INFO    MainThread:882614 [backend.py:_multiprocessing_setup():102] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2025-01-26 17:56:57,138 INFO    MainThread:882614 [wandb_init.py:init():580] backend started and connected
+2025-01-26 17:56:57,140 INFO    MainThread:882614 [wandb_init.py:init():658] updated telemetry
+2025-01-26 17:56:57,145 INFO    MainThread:882614 [wandb_init.py:init():693] communicating run to backend with 60 second timeout
+2025-01-26 17:56:57,593 INFO    MainThread:882614 [wandb_run.py:_on_init():2000] communicating current version
+2025-01-26 17:56:57,771 INFO    MainThread:882614 [wandb_run.py:_on_init():2004] got version response upgrade_message: "wandb version 0.19.4 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2025-01-26 17:56:57,771 INFO    MainThread:882614 [wandb_init.py:init():728] starting run threads in backend
+2025-01-26 17:56:58,016 INFO    MainThread:882614 [wandb_run.py:_console_start():1980] atexit reg
+2025-01-26 17:56:58,016 INFO    MainThread:882614 [wandb_run.py:_redirect():1838] redirect: SettingsConsole.WRAP_RAW
+2025-01-26 17:56:58,016 INFO    MainThread:882614 [wandb_run.py:_redirect():1903] Wrapping output streams.
+2025-01-26 17:56:58,016 INFO    MainThread:882614 [wandb_run.py:_redirect():1925] Redirects installed.
+2025-01-26 17:56:58,017 INFO    MainThread:882614 [wandb_init.py:init():765] run started, returning control to user process
+2025-01-26 18:11:40,892 INFO    MainThread:882614 [wandb_run.py:_finish():1746] finishing run programmablebio/MeMDLM_Guidance/nb43ow3i
+2025-01-26 18:11:40,893 INFO    MainThread:882614 [wandb_run.py:_atexit_cleanup():1949] got exitcode: 0
+2025-01-26 18:11:40,893 INFO    MainThread:882614 [wandb_run.py:_restore():1932] restore
+2025-01-26 18:11:40,893 INFO    MainThread:882614 [wandb_run.py:_restore():1938] restore done
+2025-01-26 18:11:46,469 INFO    MainThread:882614 [wandb_run.py:_footer_history_summary_info():3377] rendering history
+2025-01-26 18:11:46,469 INFO    MainThread:882614 [wandb_run.py:_footer_history_summary_info():3409] rendering summary
+2025-01-26 18:11:46,472 INFO    MainThread:882614 [wandb_run.py:_footer_sync_info():3333] logging synced files

@@ -1,0 +1,174 @@
+defaults:
+  - _self_
+  - /callbacks: [checkpoint_every_n_steps, checkpoint_monitor, learning_rate_monitor]
+  - /model: small
+  - /strategy: ddp
+  - /noise: loglinear
+  - /lr_scheduler: constant_warmup
+
+mode: train  # train / ppl_eval / sample_eval
+diffusion: absorbing_state
+backbone: omg_pretrain_1m  # vanilla_esm_pretrain / omg_pretrain_1m or 19m / membrane_esm_finetune
+parameterization: subs  # subs / d3pm / sedd
+time_conditioning: False
+T: 0  # 0 (continuous time) / 1000 
+subs_masking: False
+
+seed: 42
+
+data:
+  omg_pretrain_1m_path: /raid/yz927/database/protein_database/processed_dataset/2800_omguniprot_1m
+  omg_pretrain_19m_path: /raid/sg666/MeMDLM/MeMDLM/data/omg_uniref/19M/2800_omguniprot_19m
+  train:
+    vanilla_esm_train_path: /raid/sg666/MeMDLM/MeMDLM/data/uniref50/train.csv
+    membrane_esm_train_path: /raid/sg666/MeMDLM/MeMDLM/data/membrane/train.csv
+    omg_pretrain_1m_path: /raid/sg666/MeMDLM/MeMDLM/data/omg_uniref/1M/train.csv
+    wrap: null
+  test:
+    vanilla_esm_test_path: /raid/sg666/MeMDLM/MeMDLM/data/uniref50/test.csv
+    membrane_esm_test_path: /raid/sg666/MeMDLM/MeMDLM/data/membrane/test.csv
+    omg_pretrain_1m_path: /raid/sg666/MeMDLM/MeMDLM/data/omg_uniref/1M/test.csv
+    wrap: null
+  valid:
+    vanilla_esm_valid_path: /raid/sg666/MeMDLM/MeMDLM/data/uniref50/val.csv
+    membrane_esm_valid_path: /raid/sg666/MeMDLM/MeMDLM/data/membrane/val.csv
+    omg_pretrain_1m_path: /raid/sg666/MeMDLM/MeMDLM/data/omg_uniref/1M/val.csv
+    wrap: null
+  batching: padding # padding / wrapping / focus_mask
+
+loader:
+  global_batch_size: 1
+  eval_global_batch_size: ${.global_batch_size}
+  # Note: batch_size and eval_batch_size are **per machine**
+  batch_size: ${div_up:${.global_batch_size}, ${eval:${trainer.devices} * ${trainer.num_nodes}}}
+  eval_batch_size: ${div_up:${.eval_global_batch_size}, ${eval:${trainer.devices} * ${trainer.num_nodes}}}
+  num_workers: ${eval:"len(__import__('os').sched_getaffinity(0))"}
+  pin_memory: True
+
+sampling:
+  predictor: ddpm_cache  # analytic, ddpm, ddpm_cache
+  steps: 128
+  noise_removal: True
+  # TODO(yair): @subham, why aren't these params under `eval`?
+  num_sample_batches: 2  # Total samples: `num_gpus` * `loader.eval_batch_size` * num_sample_batches
+  num_sample_log: 2
+  semi_ar: False
+  stride_length: 1
+  num_strides: 1
+
+training:
+  ema: 0.9999
+  antithetic_sampling: True
+  importance_sampling: False
+  sampling_eps: 1e-3
+  change_of_variables: True
+  mlm_model_path: /raid/sg666/MeMDLM/MeMDLM/benchmarks/MLM/model_ckpts_650M/best_model_epoch
+  esm_model_path: facebook/esm2_t30_150M_UR50D
+  curriculum_learning: False
+  initial_mask_rate: 0.15
+  mask_increment: 0.055
+  max_mask_rate: 0.7
+  val_check_interval: 40895 #30671
+  train_samples: 122683
+  val_samples: 15385
+  test_samples: 15287
+
+eval:
+  checkpoint_path: /raid/sg666/MeMDLM/MeMDLM/checkpoints/checkpoints/best-v1.ckpt
+  disable_ema: False
+  compute_generative_perplexity: False
+  perplexity_batch_size: 8
+  compute_perplexity_on_sanity: False
+  gen_ppl_eval_model_name_or_path: gpt2-large  # gpt2-large, meta-llama/Llama-2-7b-hf
+  generate_samples: True
+  generation_model: /raid/sg666/MeMDLM/MeMDLM/checkpoints/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16/
+
+optim:
+  weight_decay: 0.01
+  lr: 3e-5
+  beta1: 0.9
+  beta2: 0.999
+  eps: 1e-8
+
+trainer:
+  _target_: lightning.Trainer
+  accelerator: cuda
+  num_nodes: 1
+  devices: ${device_count:}
+  accumulate_grad_batches: ${div_up:${loader.global_batch_size}, ${eval:${trainer.devices} * ${loader.batch_size} * ${trainer.num_nodes}}}
+  gradient_clip_val: 1.0
+  precision: 64
+  num_sanity_val_steps: 2
+  max_epochs: 10
+  max_steps: 1_000_000
+  log_every_n_steps: 10
+  limit_train_batches: 1.0 
+  limit_val_batches: 1.0   
+
+wandb:
+  project: MeMDLM_omg_pretrain
+  notes: null
+  group: programmablebio
+  job_type: null
+  name: esm-300m_omg1m-2800_epochs10_lr3e-5_wd0.01_bsz16_gradclip0.75_betas0.9-0.999
+  # clf name : #steps50k_lr3e-5_bsz16_heads2_drpt0.5_layers4_mask0.50
+  id: ${.name}_${seed}
+
+checkpointing:
+  # Use custom `save_dir` if, e.g., saving to S3 bucket, otherwise leave this parameter as is
+  save_dir: /raid/sg666/MeMDLM/MeMDLM/checkpoints
+  # Note: `checkpoints` path should correspond to `checkpoint_every_n_steps.dirpath`
+  resume_from_ckpt: True
+  resume_ckpt_path: ${.save_dir}/checkpoints/3-125000.ckpt 
+  pretrained_esm_mdlm_automodel_path: /raid/sg666/MeMDLM/MeMDLM/checkpoints/pretrained_automodel/
+  finetuned_esm_mdlm_automodel_path: /raid/sg666/MeMDLM/MeMDLM/checkpoints/membrane_mdlm/
+
+value:
+  batching:
+    label_pad_value: 0.001
+    max_seq_len: 1024
+  model:
+    d_model: 640  # ESM-2-150M dimension size
+    num_heads: 2
+    dropout: 0.5
+    num_layers: 4
+  training:
+    devices: [0,1]
+    mode: test # train / test / resume_from_checkpoint
+    pretrained_model: /raid/sg666/MDpLM/checkpoints/150M/membrane_automodel/epochs60_lr3e-4_200k-seqs_bsz16_all-params_no-compile_gradclip1_beta-one0.9_beta-two0.999_bf16
+    lr: 3e-5
+    max_steps: 50000
+    batch_size: 16
+    dataset_size: 7632
+    warmup_ratio: 0.05
+    log_n_steps: 2
+    ckpt_path: /raid/sg666/MeMDLM/MeMDLM/checkpoints/classifier/steps50k_lr3e-4_bsz16_heads2_drpt0.5_layers4_mask0.50/
+    model_ckpting_name: test
+  guidance:
+    temperature: 0.1
+    epsilon: 1e-4
+    topk: 10
+    residue_thresh: 0.50
+    sequence_thresh: 0.70
+    step_size: 1 # neta
+    reg_strength: 1 # lambda
+    n_steps: 16
+
+
+
+hydra:
+  run:
+    dir: /raid/sg666/MeMDLM/MeMDLM/outputs/${data.train}/${now:%Y.%m.%d}/${now:%H%M%S}
+  job:
+    chdir: true
+
+
+# for DiT implementation, ignore for MeMDLM
+Model:
+  hidden_size: 1280
+  cond_dim: 256
+  n_heads: 20
+  n_blocks: 4
+  dropout: 0.5
+  length: null #512
+  scale_by_sigma: True

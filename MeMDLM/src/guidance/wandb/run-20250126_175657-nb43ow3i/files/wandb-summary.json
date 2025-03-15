@@ -1,0 +1,1 @@
+{"test/loss": 0.33906450867652893, "test/AUROC": 0.925316572189331, "test/accuracy": 0.8536756038665771, "epoch": 0, "trainer/global_step": 0, "_timestamp": 1737915100.706249, "_runtime": 883.567498922348, "_step": 0, "_wandb": {"runtime": 883}}
