@@ -1,1 +1,0 @@
-/usr/bin/python3 mdlm_motif_benchmarking.py
