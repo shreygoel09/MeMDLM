@@ -25,7 +25,7 @@ from MeMDLM.src.diffusion import ema
 from MeMDLM.src.diffusion import utils
 from MeMDLM.src.diffusion import noise_schedule
 
-LOG2 = math.log(2)
+#LOG2 = math.log(2)
 
 def _sample_categorical(categorical_probs):
     gumbel_norm = 1e-10 - (torch.rand_like(categorical_probs) + 1e-10).log()
